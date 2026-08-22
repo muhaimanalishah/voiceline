@@ -11,6 +11,8 @@ import {
   RecordingItem,
   RecordingDetail,
   TranscriptionJsonData,
+  PaginationOptions,
+  PaginatedRecordings,
 } from "./types";
 
 export class R2RecordingStore implements RecordingStore {
@@ -73,10 +75,19 @@ export class R2RecordingStore implements RecordingStore {
     }
   }
 
-  async getAllRecordings(): Promise<RecordingItem[]> {
+  async getAllRecordings(options?: PaginationOptions): Promise<PaginatedRecordings> {
+    const page = Math.max(1, options?.page || 1);
+    const limit = Math.max(1, Math.min(100, options?.limit || 15));
+
     if (!this.bucket) {
       console.warn("R2_BUCKET_NAME is not configured.");
-      return [];
+      return {
+        recordings: [],
+        total: 0,
+        page,
+        limit,
+        hasMore: false,
+      };
     }
 
     try {
@@ -122,7 +133,10 @@ export class R2RecordingStore implements RecordingStore {
               f.Key.endsWith(".webm") ||
               f.Key.endsWith(".mp4") ||
               f.Key.endsWith(".wav") ||
-              f.Key.endsWith(".ogg"))
+              f.Key.endsWith(".ogg") ||
+              f.Key.endsWith(".mp3") ||
+              f.Key.endsWith(".m4a") ||
+              f.Key.endsWith(".aac"))
         );
 
         if (foundAudio && foundAudio.Key) {
@@ -180,10 +194,28 @@ export class R2RecordingStore implements RecordingStore {
       }
 
       items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      return items;
+
+      const total = items.length;
+      const startIndex = (page - 1) * limit;
+      const paginatedRecordings = items.slice(startIndex, startIndex + limit);
+      const hasMore = startIndex + limit < total;
+
+      return {
+        recordings: paginatedRecordings,
+        total,
+        page,
+        limit,
+        hasMore,
+      };
     } catch (error) {
       console.error("Failed to list recordings from R2:", error);
-      return [];
+      return {
+        recordings: [],
+        total: 0,
+        page,
+        limit,
+        hasMore: false,
+      };
     }
   }
 

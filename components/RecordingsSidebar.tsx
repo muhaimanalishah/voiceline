@@ -1,23 +1,39 @@
 "use client";
 
 import React, { useState } from "react";
+import {
+  Mic,
+  Plus,
+  Search,
+  FileText,
+  Loader2,
+  ChevronDown,
+} from "lucide-react";
 import { RecordingItem } from "@/lib/recordings/types";
 import styles from "./RecordingsSidebar.module.css";
 
 interface RecordingsSidebarProps {
   recordings: RecordingItem[];
+  totalCount: number;
+  hasMore: boolean;
+  isLoadingMore?: boolean;
   selectedId: string | null;
   isNewRecording: boolean;
   onSelectRecording: (id: string) => void;
   onNewRecording: () => void;
+  onLoadMore?: () => void;
 }
 
 export default function RecordingsSidebar({
   recordings,
+  totalCount,
+  hasMore,
+  isLoadingMore = false,
   selectedId,
   isNewRecording,
   onSelectRecording,
   onNewRecording,
+  onLoadMore,
 }: RecordingsSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -39,17 +55,15 @@ export default function RecordingsSidebar({
       const isToday = date.toDateString() === now.toDateString();
 
       if (isToday) {
-        return `Today, ${date.toLocaleTimeString([], {
+        return date.toLocaleTimeString([], {
           hour: "numeric",
           minute: "2-digit",
-        })}`;
+        });
       }
 
       return date.toLocaleDateString([], {
         month: "short",
         day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
       });
     } catch {
       return isoString;
@@ -61,14 +75,7 @@ export default function RecordingsSidebar({
       <div className={styles.header}>
         <div className={styles.brandRow}>
           <div className={styles.brand}>
-            <svg
-              className={styles.brandIcon}
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-            </svg>
+            <Mic className={styles.brandIcon} size={18} />
             <span>VoiceLine</span>
           </div>
         </div>
@@ -80,16 +87,16 @@ export default function RecordingsSidebar({
           }`}
           onClick={onNewRecording}
         >
-          <span>＋</span>
-          <span>New Recording</span>
+          <Plus size={15} />
+          <span>New Note</span>
         </button>
 
         <div className={styles.searchBox}>
-          <span className={styles.searchIcon}>🔍</span>
+          <Search className={styles.searchIcon} size={14} />
           <input
             type="text"
             className={styles.searchInput}
-            placeholder="Search notes & transcripts..."
+            placeholder="Search notes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -99,9 +106,9 @@ export default function RecordingsSidebar({
       <div className={styles.listContainer}>
         {filteredRecordings.length === 0 ? (
           <div className={styles.emptyState}>
-            <span>🎙️</span>
+            <FileText size={24} style={{ color: "#a1a1aa" }} />
             <span>
-              {searchQuery ? "No matching transcripts found" : "No recordings yet"}
+              {searchQuery ? "No matching notes found" : "No notes yet"}
             </span>
           </div>
         ) : (
@@ -111,7 +118,7 @@ export default function RecordingsSidebar({
               <button
                 key={rec.id}
                 type="button"
-                className={`${styles.itemCard} ${
+                className={`${styles.itemRow} ${
                   isSelected ? styles.itemActive : ""
                 }`}
                 onClick={() => onSelectRecording(rec.id)}
@@ -120,32 +127,44 @@ export default function RecordingsSidebar({
                   <span className={styles.itemTitle}>
                     {rec.title || rec.id}
                   </span>
-                  {rec.size ? (
-                    <span style={{ fontSize: "0.7rem", color: "#a1a1aa" }}>
-                      {(rec.size / 1024).toFixed(0)} KB
-                    </span>
-                  ) : null}
+                  <span className={styles.itemDate}>
+                    {formatDate(rec.createdAt)}
+                  </span>
                 </div>
-
-                <span className={styles.itemDate}>
-                  🕒 {formatDate(rec.createdAt)}
-                </span>
 
                 <p className={styles.itemSnippet} dir="auto">
                   {rec.textPreview}
                 </p>
-
-                <div className={styles.itemFooter}>
-                  <span>🔊 {rec.audioFile}</span>
-                </div>
               </button>
             );
           })
         )}
+
+        {hasMore && !searchQuery && (
+          <button
+            type="button"
+            className={styles.loadMoreBtn}
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} />
+                <span>Loading notes...</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown size={13} />
+                <span>Load More</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
-      <div className={styles.itemCount}>
-        {recordings.length} {recordings.length === 1 ? "note" : "notes"} saved
+      <div className={styles.footer}>
+        <span>{totalCount || recordings.length} notes</span>
+        <span>VoiceLine AI</span>
       </div>
     </aside>
   );

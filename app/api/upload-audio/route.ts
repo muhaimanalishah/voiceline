@@ -16,6 +16,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const MAX_SIZE = 25 * 1024 * 1024; // 25MB
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json(
+        { error: "File size exceeds the 25MB maximum limit." },
+        { status: 400 }
+      );
+    }
+
     // Determine appropriate file extension based on MIME type or original name
     const mimeType = file.type || "audio/webm";
     let extension = ".webm";

@@ -1,14 +1,22 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { Loader2 } from "lucide-react";
 import { RecordingItem, RecordingDetail } from "@/lib/recordings/types";
 import RecordingsSidebar from "./RecordingsSidebar";
 import TranscriptEditor from "./TranscriptEditor";
 import AudioRecorder from "./AudioRecorder";
 import styles from "./VoiceLineApp.module.css";
 
+const PAGE_SIZE = 15;
+
 export default function VoiceLineApp() {
   const [recordings, setRecordings] = useState<RecordingItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isNewRecording, setIsNewRecording] = useState(true);
   const [selectedRecording, setSelectedRecording] =
@@ -16,21 +24,32 @@ export default function VoiceLineApp() {
   const [isLoadingRecordings, setIsLoadingRecordings] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
-  const fetchRecordings = useCallback(async () => {
+  const fetchRecordings = useCallback(async (page: number = 1, append: boolean = false) => {
+    if (append) setIsLoadingMore(true);
     try {
-      const res = await fetch("/api/recordings");
+      const res = await fetch(`/api/recordings?page=${page}&limit=${PAGE_SIZE}`);
       const data = await res.json();
       if (res.ok && data.recordings) {
-        setRecordings(data.recordings);
+        setRecordings((prev) => (append ? [...prev, ...data.recordings] : data.recordings));
+        setTotalCount(data.total || 0);
+        setHasMore(data.hasMore || false);
+        setCurrentPage(data.page || 1);
         return data.recordings as RecordingItem[];
       }
     } catch (err) {
       console.error("Failed to fetch recordings list:", err);
     } finally {
       setIsLoadingRecordings(false);
+      setIsLoadingMore(false);
     }
     return [];
   }, []);
+
+  const handleLoadMore = () => {
+    if (hasMore && !isLoadingMore) {
+      fetchRecordings(currentPage + 1, true);
+    }
+  };
 
   const fetchRecordingDetail = useCallback(async (id: string) => {
     setIsLoadingDetail(true);
@@ -52,7 +71,7 @@ export default function VoiceLineApp() {
 
   // Initial load
   useEffect(() => {
-    fetchRecordings();
+    fetchRecordings(1, false);
   }, [fetchRecordings]);
 
   // Load detail when selectedId changes and not in new recording mode
@@ -76,7 +95,7 @@ export default function VoiceLineApp() {
   }, []);
 
   const handleRecordingCreated = async (folderId: string) => {
-    const updatedList = await fetchRecordings();
+    const updatedList = await fetchRecordings(1, false);
     if (updatedList.some((item) => item.id === folderId)) {
       setSelectedId(folderId);
       setIsNewRecording(false);
@@ -101,8 +120,22 @@ export default function VoiceLineApp() {
       throw new Error(errorData.error || "Failed to update transcription.");
     }
 
-    // Refresh recordings list previews & selected detail
-    fetchRecordings();
+    // Refresh current recordings in list
+    setRecordings((prev) =>
+      prev.map((rec) =>
+        rec.id === id
+          ? {
+              ...rec,
+              title: newTitle ?? rec.title,
+              textPreview:
+                newText.length > 120
+                  ? newText.slice(0, 120).trim() + "..."
+                  : newText,
+            }
+          : rec
+      )
+    );
+
     setSelectedRecording((prev) =>
       prev && prev.id === id
         ? { ...prev, text: newText, title: newTitle ?? prev.title }
@@ -120,7 +153,7 @@ export default function VoiceLineApp() {
       throw new Error(errorData.error || "Failed to delete recording.");
     }
 
-    const updatedList = await fetchRecordings();
+    const updatedList = await fetchRecordings(1, false);
     if (updatedList.length > 0) {
       setSelectedId(updatedList[0].id);
       setIsNewRecording(false);
@@ -129,7 +162,7 @@ export default function VoiceLineApp() {
     }
   };
 
-  // Global Keyboard Shortcuts (Alt+N for new recording, Escape to go back)
+  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
@@ -138,14 +171,17 @@ export default function VoiceLineApp() {
         activeEl instanceof HTMLTextAreaElement ||
         activeEl?.getAttribute("contenteditable") === "true";
 
-      // Alt+N / Ctrl+N / Cmd+N (when not in native conflict): Switch to new recording
-      if ((e.altKey && e.key.toLowerCase() === "n") || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n" && !isTyping)) {
+      // Alt+N / Cmd+N / Ctrl+N (when not focused in textarea)
+      if (
+        (e.altKey && e.key.toLowerCase() === "n") ||
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n" && !isTyping)
+      ) {
         e.preventDefault();
         handleNewRecording();
         return;
       }
 
-      // Escape: Return to active/first note if in new recording mode
+      // Escape: Return from recorder view to active/first note
       if (e.key === "Escape" && isNewRecording && recordings.length > 0) {
         e.preventDefault();
         handleSelectRecording(selectedId || recordings[0].id);
@@ -161,28 +197,29 @@ export default function VoiceLineApp() {
     <div className={styles.appLayout}>
       <RecordingsSidebar
         recordings={recordings}
+        totalCount={totalCount}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
         selectedId={selectedId}
         isNewRecording={isNewRecording}
         onSelectRecording={handleSelectRecording}
         onNewRecording={handleNewRecording}
+        onLoadMore={handleLoadMore}
       />
 
       <main className={styles.mainContent}>
         {isLoadingRecordings ? (
-          <div className={styles.loadingSpinner} />
+          <div className={styles.loadingSpinner}>
+            <Loader2 size={32} style={{ animation: "spin 0.8s linear infinite" }} />
+          </div>
         ) : isNewRecording ? (
-          <div className={styles.recorderWrapper}>
-            <div className={styles.heroIntro}>
-              <h1 className={styles.heroTitle}>Record & Transcribe</h1>
-              <p className={styles.heroSubtitle}>
-                Capture audio in 24kbps Opus compression or drop existing audio files
-                to transcribe naturally with OpenAI speech models.
-              </p>
-            </div>
+          <div className={styles.recorderWorkspace}>
             <AudioRecorder onRecordingCreated={handleRecordingCreated} />
           </div>
         ) : isLoadingDetail ? (
-          <div className={styles.loadingSpinner} />
+          <div className={styles.loadingSpinner}>
+            <Loader2 size={32} style={{ animation: "spin 0.8s linear infinite" }} />
+          </div>
         ) : selectedRecording ? (
           <TranscriptEditor
             key={selectedRecording.id}
@@ -191,19 +228,12 @@ export default function VoiceLineApp() {
             onDelete={handleDelete}
           />
         ) : (
-          <div className={styles.recorderWrapper}>
-            <p>Recording not found.</p>
-            <button
-              type="button"
-              className={styles.menuBtn}
-              onClick={handleNewRecording}
-            >
-              Start New Recording
-            </button>
+          <div className={styles.recorderWorkspace}>
+            <AudioRecorder onRecordingCreated={handleRecordingCreated} />
           </div>
         )}
 
-        {/* Global Shortcuts Reference Bar */}
+        {/* Global Shortcut Cheat-sheet Bar */}
         <div className={styles.shortcutBar}>
           <div className={styles.shortcutItem}>
             <span className={styles.kbd}>Alt+N</span>
@@ -223,11 +253,6 @@ export default function VoiceLineApp() {
           <div className={styles.shortcutItem}>
             <span className={styles.kbd}>Alt+C</span>
             <span>Copy</span>
-          </div>
-          <span className={styles.dividerDot}>•</span>
-          <div className={styles.shortcutItem}>
-            <span className={styles.kbd}>Esc</span>
-            <span>Back</span>
           </div>
         </div>
       </main>

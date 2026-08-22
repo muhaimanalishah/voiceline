@@ -1,6 +1,17 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Copy,
+  Check,
+  Download,
+  Trash2,
+  Play,
+  Volume2,
+  Loader2,
+  CheckCircle2,
+  Clock,
+} from "lucide-react";
 import { RecordingDetail } from "@/lib/recordings/types";
 import styles from "./TranscriptEditor.module.css";
 
@@ -36,7 +47,6 @@ export default function TranscriptEditor({
     setTimeout(() => setToastMessage(null), 2000);
   };
 
-  // Sync state and reset lazy audio state when recording prop changes
   useEffect(() => {
     setTitle(recording.title || recording.id);
     setText(recording.text);
@@ -69,7 +79,6 @@ export default function TranscriptEditor({
       newText !== recording.text || title !== (recording.title || recording.id);
     setHasUnsavedChanges(unsaved);
 
-    // Auto-save debounce (2 seconds)
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       saveChanges(newText, title);
@@ -83,7 +92,6 @@ export default function TranscriptEditor({
       text !== recording.text || newTitle !== (recording.title || recording.id);
     setHasUnsavedChanges(unsaved);
 
-    // Auto-save debounce (2 seconds)
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       saveChanges(text, newTitle);
@@ -94,13 +102,6 @@ export default function TranscriptEditor({
     if (hasUnsavedChanges) {
       saveChanges(text, title);
     }
-  };
-
-  const handleReset = () => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    setTitle(recording.title || recording.id);
-    setText(recording.text);
-    setHasUnsavedChanges(false);
   };
 
   const handleCopy = useCallback(async () => {
@@ -121,7 +122,7 @@ export default function TranscriptEditor({
     }
   };
 
-  // Keyboard shortcut listener for Ctrl+S / Cmd+S, Alt+C, and Space play/pause
+  // Keyboard shortcut listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
@@ -145,7 +146,7 @@ export default function TranscriptEditor({
         return;
       }
 
-      // Space: Toggle play/pause when audio loaded and not typing in text area
+      // Space: Toggle play/pause when audio loaded and not typing
       if (e.code === "Space" && !isTyping && isAudioLoaded && audioRef.current) {
         e.preventDefault();
         if (audioRef.current.paused) {
@@ -206,96 +207,87 @@ export default function TranscriptEditor({
     }
   };
 
+  const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const charCount = text.length;
+
   const formattedDate = new Date(recording.createdAt).toLocaleString(undefined, {
     month: "short",
     day: "numeric",
-    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
 
   return (
-    <div className={styles.container}>
+    <div className={styles.workspace}>
       {toastMessage && <div className={styles.toast}>{toastMessage}</div>}
 
-      {/* Top Header */}
+      {/* Top Header Bar */}
       <div className={styles.topBar}>
-        <div className={styles.headerInfo}>
-          <div className={styles.titleRow}>
-            <input
-              type="text"
-              className={styles.titleInput}
-              value={title}
-              onChange={handleTitleChange}
-              onBlur={handleTitleBlur}
-              placeholder="Note title..."
-              aria-label="Note title"
-            />
-            <span className={styles.modelBadge}>{recording.model}</span>
-          </div>
-          <div className={styles.dateSubtitle}>
+        <div className={styles.titleArea}>
+          <input
+            type="text"
+            className={styles.titleInput}
+            value={title}
+            onChange={handleTitleChange}
+            onBlur={handleTitleBlur}
+            placeholder="Untitled Note..."
+            aria-label="Note title"
+          />
+          <div className={styles.metaSubtitle}>
             <span>🕒 {formattedDate}</span>
             <span>•</span>
-            <span>ID: <code>{recording.id}</code></span>
-            <span>•</span>
-            <span>File: <code>{recording.audioFile}</code></span>
+            <span className={styles.modelTag}>{recording.model}</span>
           </div>
         </div>
 
-        {/* Action Toolbar */}
-        <div className={styles.actionsToolbar}>
+        <div className={styles.toolbarActions}>
           <button
             type="button"
-            className={styles.btn}
+            className={styles.actionBtn}
             onClick={handleCopy}
-            title="Copy plain text (Alt+C)"
+            title="Copy text (Alt+C)"
           >
-            {copied ? "✓ Copied!" : "📋 Copy Text"}
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+            <span>{copied ? "Copied" : "Copy"}</span>
           </button>
           <button
             type="button"
-            className={styles.btn}
+            className={styles.actionBtn}
             onClick={handleDownloadMarkdown}
-            title="Download as Markdown file"
+            title="Download Markdown"
           >
-            📥 Download .md
+            <Download size={14} />
+            <span>Export</span>
           </button>
           <button
             type="button"
-            className={`${styles.btn} ${styles.btnDanger}`}
+            className={`${styles.actionBtn} ${styles.dangerBtn}`}
             onClick={() => setShowDeleteModal(true)}
-            title="Delete this recording"
+            title="Delete note"
           >
-            🗑️ Delete
+            <Trash2 size={14} />
           </button>
         </div>
       </div>
 
-      {/* Audio Player Section with Lazy Loading & Speed Controls */}
-      <div className={styles.audioSection}>
-        <div className={styles.audioHeader}>
-          <span>Audio Playback</span>
-          {recording.size && (
-            <span>{(recording.size / 1024).toFixed(1)} KB</span>
-          )}
-        </div>
-
+      {/* Audio Strip with Lazy Loading & Speed Options */}
+      <div className={styles.audioStrip}>
         {!isAudioLoaded ? (
-          <div className={styles.lazyAudioWrapper}>
-            <button
-              type="button"
-              className={styles.lazyAudioBtn}
-              onClick={() => setIsAudioLoaded(true)}
-            >
-              <span>▶</span>
-              <span>Load Audio Player</span>
-            </button>
-            <span className={styles.lazyMetaBadge}>
-              Bandwidth saver: audio stream unmounted
-            </span>
-          </div>
+          <button
+            type="button"
+            className={styles.lazyAudioLoadBtn}
+            onClick={() => setIsAudioLoaded(true)}
+          >
+            <Play size={13} fill="currentColor" />
+            <span>Load Audio Player</span>
+            {recording.size ? (
+              <span style={{ color: "#a1a1aa", fontSize: "0.72rem" }}>
+                ({(recording.size / 1024).toFixed(0)} KB)
+              </span>
+            ) : null}
+          </button>
         ) : (
-          <div className={styles.audioControlsRow}>
+          <>
             <audio
               ref={audioRef}
               className={styles.audioPlayer}
@@ -310,84 +302,55 @@ export default function TranscriptEditor({
               Your browser does not support the audio element.
             </audio>
 
-            <div className={styles.playbackBar}>
-              <div className={styles.speedGroup}>
-                <span className={styles.speedLabel}>Speed:</span>
-                {SPEED_OPTIONS.map((speed) => (
-                  <button
-                    key={speed}
-                    type="button"
-                    className={`${styles.speedBtn} ${
-                      playbackSpeed === speed ? styles.speedBtnActive : ""
-                    }`}
-                    onClick={() => handleSpeedChange(speed)}
-                  >
-                    {speed}x
-                  </button>
-                ))}
-              </div>
-              <span className={styles.speedLabel}>[Space] Play/Pause</span>
+            <div className={styles.speedGroup}>
+              {SPEED_OPTIONS.map((speed) => (
+                <button
+                  key={speed}
+                  type="button"
+                  className={`${styles.speedBtn} ${
+                    playbackSpeed === speed ? styles.speedBtnActive : ""
+                  }`}
+                  onClick={() => handleSpeedChange(speed)}
+                >
+                  {speed}x
+                </button>
+              ))}
             </div>
-          </div>
+          </>
         )}
       </div>
 
-      {/* Transcript Editor Section */}
-      <div className={styles.editorSection}>
-        <div className={styles.editorHeader}>
-          <div className={styles.editorTitle}>
-            <span>Transcript Editor</span>
-            {isSaving ? (
-              <span className={`${styles.statusIndicator} ${styles.saving}`}>
-                ● Saving...
-              </span>
-            ) : hasUnsavedChanges ? (
-              <span className={`${styles.statusIndicator} ${styles.unsaved}`}>
-                ● Unsaved edits
-              </span>
-            ) : (
-              <span className={`${styles.statusIndicator} ${styles.saved}`}>
-                ✓ All changes saved
-              </span>
-            )}
-          </div>
-        </div>
-
+      {/* Expansive Main Editor Area */}
+      <div className={styles.editorContainer}>
         <textarea
           className={styles.textarea}
           dir="auto"
           value={text}
           onChange={handleTextChange}
-          placeholder="Transcription text..."
-          rows={8}
+          placeholder="Start typing or listen to your recording transcript..."
         />
+      </div>
 
-        <div className={styles.editorFooter}>
-          <div className={styles.saveControls}>
-            <button
-              type="button"
-              className={`${styles.btn} ${styles.btnPrimary}`}
-              onClick={() => saveChanges(text, title)}
-              disabled={isSaving || !hasUnsavedChanges}
-              title="Save changes (Ctrl+S)"
-            >
-              {isSaving ? "Saving..." : "Save Changes (Ctrl+S)"}
-            </button>
-            {hasUnsavedChanges && (
-              <button
-                type="button"
-                className={styles.btn}
-                onClick={handleReset}
-                disabled={isSaving}
-              >
-                Discard
-              </button>
-            )}
-          </div>
+      {/* Bottom Status & Info Bar */}
+      <div className={styles.bottomBar}>
+        <div className={styles.statsGroup}>
+          <span>{wordCount} words</span>
+          <span>•</span>
+          <span>{charCount} characters</span>
+        </div>
 
-          <span className={styles.footerNote}>
-            💾 Synced with storage (<code>{recording.id}</code>)
-          </span>
+        <div className={styles.saveStatus}>
+          {isSaving ? (
+            <span className={styles.statusSaving}>
+              <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite", display: "inline" }} /> Saving...
+            </span>
+          ) : hasUnsavedChanges ? (
+            <span className={styles.statusUnsaved}>● Unsaved</span>
+          ) : (
+            <span className={styles.statusSaved}>
+              <CheckCircle2 size={12} style={{ display: "inline", verticalAlign: "middle" }} /> Saved
+            </span>
+          )}
         </div>
       </div>
 
@@ -395,15 +358,15 @@ export default function TranscriptEditor({
       {showDeleteModal && (
         <div className={styles.modalBackdrop}>
           <div className={styles.modalContent}>
-            <h3 className={styles.modalTitle}>Delete Recording?</h3>
+            <h3 className={styles.modalTitle}>Delete Note</h3>
             <p className={styles.modalText}>
               Are you sure you want to delete <strong>{title || recording.id}</strong>?
-              This will permanently remove the audio file and transcript from storage.
+              This cannot be undone.
             </p>
             <div className={styles.modalActions}>
               <button
                 type="button"
-                className={styles.btn}
+                className={styles.actionBtn}
                 onClick={() => setShowDeleteModal(false)}
                 disabled={isDeleting}
               >
@@ -411,11 +374,11 @@ export default function TranscriptEditor({
               </button>
               <button
                 type="button"
-                className={`${styles.btn} ${styles.btnDanger}`}
+                className={`${styles.actionBtn} ${styles.dangerBtn}`}
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
               >
-                {isDeleting ? "Deleting..." : "Confirm Delete"}
+                {isDeleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>

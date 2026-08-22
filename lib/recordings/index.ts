@@ -14,7 +14,7 @@ export function getRecordingStore(): RecordingStore {
 }
 
 export const recordingStore: RecordingStore = {
-  getAllRecordings: () => getRecordingStore().getAllRecordings(),
+  getAllRecordings: (options) => getRecordingStore().getAllRecordings(options),
   getRecordingById: (id: string) => getRecordingStore().getRecordingById(id),
   updateTranscription: (id: string, newText: string, newTitle?: string) =>
     getRecordingStore().updateTranscription(id, newText, newTitle),

@@ -6,6 +6,8 @@ import {
   RecordingItem,
   RecordingDetail,
   TranscriptionJsonData,
+  PaginationOptions,
+  PaginatedRecordings,
 } from "./types";
 
 export class FsRecordingStore implements RecordingStore {
@@ -41,8 +43,11 @@ export class FsRecordingStore implements RecordingStore {
     }
   }
 
-  async getAllRecordings(): Promise<RecordingItem[]> {
+  async getAllRecordings(options?: PaginationOptions): Promise<PaginatedRecordings> {
     await this.ensureUploadsDir();
+
+    const page = Math.max(1, options?.page || 1);
+    const limit = Math.max(1, Math.min(100, options?.limit || 15));
 
     try {
       const entries = await fs.readdir(this.uploadsDir, {
@@ -96,7 +101,10 @@ export class FsRecordingStore implements RecordingStore {
                 f.endsWith(".webm") ||
                 f.endsWith(".mp4") ||
                 f.endsWith(".wav") ||
-                f.endsWith(".ogg")
+                f.endsWith(".ogg") ||
+                f.endsWith(".mp3") ||
+                f.endsWith(".m4a") ||
+                f.endsWith(".aac")
             );
             if (foundAudio) {
               audioFile = foundAudio;
@@ -143,10 +151,27 @@ export class FsRecordingStore implements RecordingStore {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
 
-      return items;
+      const total = items.length;
+      const startIndex = (page - 1) * limit;
+      const paginatedRecordings = items.slice(startIndex, startIndex + limit);
+      const hasMore = startIndex + limit < total;
+
+      return {
+        recordings: paginatedRecordings,
+        total,
+        page,
+        limit,
+        hasMore,
+      };
     } catch (error) {
       console.error("Failed to list recordings:", error);
-      return [];
+      return {
+        recordings: [],
+        total: 0,
+        page,
+        limit,
+        hasMore: false,
+      };
     }
   }
 
@@ -195,7 +220,10 @@ export class FsRecordingStore implements RecordingStore {
             f.endsWith(".webm") ||
             f.endsWith(".mp4") ||
             f.endsWith(".wav") ||
-            f.endsWith(".ogg")
+            f.endsWith(".ogg") ||
+            f.endsWith(".mp3") ||
+            f.endsWith(".m4a") ||
+            f.endsWith(".aac")
         );
         if (foundAudio) {
           audioFile = foundAudio;

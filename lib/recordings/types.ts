@@ -35,8 +35,21 @@ export interface TranscriptionJsonData {
   [key: string]: unknown;
 }
 
+export interface PaginationOptions {
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedRecordings {
+  recordings: RecordingItem[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export interface RecordingStore {
-  getAllRecordings(): Promise<RecordingItem[]>;
+  getAllRecordings(options?: PaginationOptions): Promise<PaginatedRecordings>;
   getRecordingById(id: string): Promise<RecordingDetail | null>;
   updateTranscription(id: string, newText: string, newTitle?: string): Promise<boolean>;
   updateRecording?(id: string, updates: { text?: string; title?: string }): Promise<boolean>;

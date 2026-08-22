@@ -1,32 +1,22 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import {
+  Mic,
+  Square,
+  UploadCloud,
+  AlertCircle,
+  Loader2,
+  Radio,
+} from "lucide-react";
 import styles from "./AudioRecorder.module.css";
-
-interface UploadedFileInfo {
-  folderId: string;
-  filename: string;
-  url: string;
-  filepath: string;
-  size: number;
-  mimeType: string;
-}
-
-interface TranscriptionInfo {
-  title?: string;
-  text: string;
-  model: string;
-  createdAt: string;
-  audioFile: string;
-  folderId: string;
-  transcriptionJsonUrl: string;
-}
 
 export interface AudioRecorderProps {
   onRecordingCreated?: (folderId: string) => void;
 }
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB OpenAI limit
+const MAX_RECORDING_SECONDS = 600; // 10 minutes limit
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB limit
 const ACCEPTED_EXTENSIONS = [".webm", ".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac"];
 
 export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps = {}) {
@@ -36,11 +26,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [transcribeError, setTranscribeError] = useState<string | null>(null);
-  const [uploadedFile, setUploadedFile] = useState<UploadedFileInfo | null>(null);
-  const [transcription, setTranscription] = useState<TranscriptionInfo | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [localAudioUrl, setLocalAudioUrl] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -55,13 +40,9 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
-      if (localAudioUrl) {
-        URL.revokeObjectURL(localAudioUrl);
-      }
     };
-  }, [localAudioUrl]);
+  }, []);
 
-  // Determine optimal low-bitrate MIME type
   const getSupportedMimeType = (): string => {
     if (typeof window === "undefined" || !window.MediaRecorder) {
       return "";
@@ -89,15 +70,29 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  const checkAudioDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      try {
+        const audio = document.createElement("audio");
+        const objectUrl = URL.createObjectURL(file);
+        audio.src = objectUrl;
+        audio.onloadedmetadata = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(audio.duration || 0);
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(0); // If browser cannot probe duration, fallback
+        };
+      } catch {
+        resolve(0);
+      }
+    });
   };
 
   const transcribeAudio = async (folderId: string) => {
     setIsTranscribing(true);
-    setTranscribeError(null);
+    setError(null);
 
     try {
       const response = await fetch("/api/transcribe", {
@@ -114,44 +109,49 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
         throw new Error(data.error || "Failed to transcribe audio.");
       }
 
-      setTranscription(data);
       if (onRecordingCreated) {
         onRecordingCreated(folderId);
       }
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Transcription failed.";
-      setTranscribeError(message);
+      setError(message);
     } finally {
       setIsTranscribing(false);
     }
   };
 
   const processAudioUpload = async (file: File) => {
-    // Validation
+    // 1. File Size Validation
     if (file.size > MAX_FILE_SIZE) {
-      setError(`File size (${formatFileSize(file.size)}) exceeds the 25MB limit.`);
+      setError(`File size exceeds the 25MB maximum limit.`);
       return;
     }
 
     const extension = "." + file.name.split(".").pop()?.toLowerCase();
-    const isAudioMime = file.type.startsWith("audio/") || file.type.includes("video/webm") || file.type.includes("video/ogg");
+    const isAudioMime =
+      file.type.startsWith("audio/") ||
+      file.type.includes("video/webm") ||
+      file.type.includes("video/ogg");
     const isAudioExt = ACCEPTED_EXTENSIONS.includes(extension);
 
     if (!isAudioMime && !isAudioExt) {
-      setError("Please provide a valid audio file (.mp3, .m4a, .wav, .webm, .ogg, .aac).");
+      setError("Please select a supported audio format (.mp3, .m4a, .wav, .webm, .ogg, .aac).");
+      return;
+    }
+
+    // 2. Duration Validation
+    const audioDuration = await checkAudioDuration(file);
+    if (audioDuration > MAX_RECORDING_SECONDS) {
+      const durationMins = Math.ceil(audioDuration / 60);
+      setError(`Audio duration (${durationMins} mins) exceeds the 10-minute limit.`);
       return;
     }
 
     setIsUploading(true);
     setError(null);
-    setTranscription(null);
-    setTranscribeError(null);
 
     try {
-      const previewUrl = URL.createObjectURL(file);
-      setLocalAudioUrl(previewUrl);
-
       const formData = new FormData();
       formData.append("file", file);
 
@@ -165,8 +165,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       if (!response.ok) {
         throw new Error(data.error || "Failed to upload audio file.");
       }
-
-      setUploadedFile(data);
 
       if (data.folderId) {
         await transcribeAudio(data.folderId);
@@ -189,23 +187,28 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       extension = "wav";
     }
 
-    const file = new File([audioBlob], `recorded-voice.${extension}`, {
+    const file = new File([audioBlob], `voice-recording.${extension}`, {
       type: mimeType || audioBlob.type || "audio/webm",
     });
 
     await processAudioUpload(file);
   };
 
+  const stopRecording = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+
+    setIsRecording(false);
+  }, []);
+
   const startRecording = async () => {
     setError(null);
-    setTranscribeError(null);
-    setUploadedFile(null);
-    setTranscription(null);
-
-    if (localAudioUrl) {
-      URL.revokeObjectURL(localAudioUrl);
-      setLocalAudioUrl(null);
-    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -242,9 +245,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
           type: recordedMimeType,
         });
 
-        const previewUrl = URL.createObjectURL(audioBlob);
-        setLocalAudioUrl(previewUrl);
-
         await handleUploadBlob(audioBlob, recordedMimeType);
 
         if (streamRef.current) {
@@ -257,30 +257,24 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       setIsRecording(true);
       setDuration(0);
 
+      // Auto-stop at 10 minutes (600s)
       timerIntervalRef.current = setInterval(() => {
-        setDuration((prev) => prev + 1);
+        setDuration((prev) => {
+          if (prev + 1 >= MAX_RECORDING_SECONDS) {
+            stopRecording();
+            setError("Maximum recording limit of 10 minutes reached.");
+            return MAX_RECORDING_SECONDS;
+          }
+          return prev + 1;
+        });
       }, 1000);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to access microphone.";
-      setError(`Microphone access error: ${message}`);
+      setError(`Microphone error: ${message}`);
     }
   };
 
-  const stopRecording = useCallback(() => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-
-    setIsRecording(false);
-  }, []);
-
-  // Drag & drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -299,35 +293,22 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     setIsDraggingOver(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      processAudioUpload(file);
+      processAudioUpload(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      processAudioUpload(file);
-    }
-  };
-
-  const handleCopy = async () => {
-    if (!transcription?.text) return;
-    try {
-      await navigator.clipboard.writeText(transcription.text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy text:", err);
+      processAudioUpload(e.target.files[0]);
     }
   };
 
   return (
-    <div className={styles.card}>
+    <div className={styles.container}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Record or Upload Audio</h2>
+        <h2 className={styles.title}>New Voice Note</h2>
         <p className={styles.subtitle}>
-          Capture live speech (24kbps Opus) or upload existing audio files
+          Record live speech or drop existing audio files to generate instant transcripts.
         </p>
       </div>
 
@@ -346,27 +327,30 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
               <span className={styles.waveBar} />
               <span className={styles.waveBar} />
             </div>
+            <span className={styles.limitNote}>Max 10 minutes</span>
           </>
         ) : isUploading ? (
           <div className={styles.loadingContainer}>
-            <div className={styles.spinner} />
-            <span className={styles.loadingText}>Uploading audio...</span>
+            <Loader2 className={styles.spinner} size={20} />
+            <span>Uploading audio...</span>
           </div>
         ) : isTranscribing ? (
           <div className={styles.loadingContainer}>
-            <div className={styles.spinner} />
-            <span className={styles.loadingText}>Transcribing with OpenAI...</span>
+            <Loader2 className={styles.spinner} size={20} />
+            <span>Transcribing with OpenAI...</span>
           </div>
         ) : (
-          <div className={styles.configNotice}>
-            <span>Target format: <strong>audio/webm (24 kbps)</strong></span>
+          <div className={styles.loadingContainer}>
+            <Radio size={16} style={{ color: "#71717a" }} />
+            <span className={styles.limitNote}>24kbps Opus • 10 min max</span>
           </div>
         )}
       </div>
 
       {error && (
         <div className={styles.errorBox}>
-          <span>⚠️ {error}</span>
+          <AlertCircle size={16} />
+          <span>{error}</span>
         </div>
       )}
 
@@ -378,10 +362,8 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
             onClick={startRecording}
             disabled={isUploading || isTranscribing}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="8" fill="#ef4444" />
-            </svg>
-            {uploadedFile ? "Record Again" : "Start Recording"}
+            <Mic size={18} />
+            <span>Start Recording</span>
           </button>
         ) : (
           <button
@@ -389,19 +371,16 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
             className={styles.stopBtn}
             onClick={stopRecording}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="6" width="12" height="12" rx="2" />
-            </svg>
-            Stop & Save
+            <Square size={16} fill="currentColor" />
+            <span>Stop & Transcribe</span>
           </button>
         )}
       </div>
 
-      {/* Drag & Drop Audio Upload Zone */}
       {!isRecording && !isUploading && !isTranscribing && (
         <>
           <div className={styles.divider}>
-            <span>Or Upload Audio File</span>
+            <span>Or Upload File</span>
           </div>
 
           <div
@@ -414,14 +393,14 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
           >
-            <span className={styles.dropZoneIcon}>📁</span>
-            <div className={styles.dropZoneTitle}>
+            <UploadCloud className={styles.dropIcon} size={28} />
+            <div className={styles.dropTitle}>
               {isDraggingOver
-                ? "Drop the audio file right here..."
-                : "Drag & drop audio file here or click to browse"}
+                ? "Drop audio file here..."
+                : "Drop audio file here or click to browse"}
             </div>
-            <div className={styles.dropZoneSubtitle}>
-              Supports MP3, M4A, WAV, WebM, OGG, AAC (Max 25MB)
+            <div className={styles.dropSubtitle}>
+              MP3, M4A, WAV, WebM, OGG, AAC • Max 10 min / 25MB
             </div>
             <input
               type="file"
@@ -432,102 +411,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
             />
           </div>
         </>
-      )}
-
-      {uploadedFile && (
-        <div className={styles.resultCard}>
-          <div className={styles.resultHeader}>
-            <span className={styles.badge}>✓ Saved ({uploadedFile.folderId})</span>
-          </div>
-
-          <div className={styles.metaGrid}>
-            <div className={styles.metaItem}>
-              <span className={styles.metaLabel}>Folder</span>
-              <span className={styles.metaValue}>{uploadedFile.folderId}</span>
-            </div>
-            <div className={styles.metaItem}>
-              <span className={styles.metaLabel}>Size</span>
-              <span className={styles.metaValue}>
-                {formatFileSize(uploadedFile.size)}
-              </span>
-            </div>
-            <div className={styles.metaItem}>
-              <span className={styles.metaLabel}>MIME Type</span>
-              <span className={styles.metaValue}>{uploadedFile.mimeType}</span>
-            </div>
-            <div className={styles.metaItem}>
-              <span className={styles.metaLabel}>Codec / Quality</span>
-              <span className={styles.metaValue}>Voice Optimized</span>
-            </div>
-          </div>
-
-          {localAudioUrl && (
-            <audio
-              className={styles.audioPlayer}
-              controls
-              src={localAudioUrl}
-              preload="metadata"
-            >
-              Your browser does not support the audio element.
-            </audio>
-          )}
-
-          {isTranscribing && (
-            <div className={styles.transcriptionLoading}>
-              <div className={styles.spinner} />
-              <span>Transcribing audio with OpenAI...</span>
-            </div>
-          )}
-
-          {transcribeError && (
-            <div
-              className={styles.errorBox}
-              style={{
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: "0.5rem",
-              }}
-            >
-              <div>⚠️ {transcribeError}</div>
-              {uploadedFile && (
-                <button
-                  type="button"
-                  className={styles.retryBtn}
-                  onClick={() => transcribeAudio(uploadedFile.folderId)}
-                >
-                  Retry Transcription
-                </button>
-              )}
-            </div>
-          )}
-
-          {transcription && (
-            <div className={styles.transcriptionBox}>
-              <div className={styles.transcriptionHeader}>
-                <div className={styles.transcriptionTitle}>
-                  <span>Transcription</span>
-                  <span className={styles.modelBadge}>{transcription.model}</span>
-                </div>
-                <button
-                  type="button"
-                  className={styles.copyBtn}
-                  onClick={handleCopy}
-                  title="Copy transcription"
-                >
-                  {copied ? "✓ Copied!" : "📋 Copy"}
-                </button>
-              </div>
-
-              <p className={styles.transcriptionText} dir="auto">
-                {transcription.text}
-              </p>
-
-              <div className={styles.storageNote}>
-                💾 Saved to storage (<code>{uploadedFile.folderId}</code>)
-              </div>
-            </div>
-          )}
-        </div>
       )}
     </div>
   );
