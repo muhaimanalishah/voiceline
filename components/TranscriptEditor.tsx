@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { RecordingDetail } from "@/lib/recordings/types";
 import styles from "./TranscriptEditor.module.css";
 
@@ -10,6 +10,8 @@ interface TranscriptEditorProps {
   onDelete: (id: string) => Promise<void>;
 }
 
+const SPEED_OPTIONS = [1, 1.25, 1.5, 2];
+
 export default function TranscriptEditor({
   recording,
   onUpdate,
@@ -18,27 +20,53 @@ export default function TranscriptEditor({
   const [title, setTitle] = useState(recording.title || recording.id);
   const [text, setText] = useState(recording.text);
   const [isAudioLoaded, setIsAudioLoaded] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2000);
+  };
 
   // Sync state and reset lazy audio state when recording prop changes
   useEffect(() => {
     setTitle(recording.title || recording.id);
     setText(recording.text);
     setIsAudioLoaded(false);
+    setPlaybackSpeed(1);
     setHasUnsavedChanges(false);
     setShowDeleteModal(false);
   }, [recording.id, recording.title, recording.text]);
 
+  const saveChanges = useCallback(
+    async (textToSave: string = text, titleToSave: string = title) => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      setIsSaving(true);
+      try {
+        await onUpdate(recording.id, textToSave, titleToSave);
+        setHasUnsavedChanges(false);
+      } catch (err) {
+        console.error("Failed to save changes:", err);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [recording.id, text, title, onUpdate]
+  );
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setText(newText);
-    const unsaved = newText !== recording.text || title !== (recording.title || recording.id);
+    const unsaved =
+      newText !== recording.text || title !== (recording.title || recording.id);
     setHasUnsavedChanges(unsaved);
 
     // Auto-save debounce (2 seconds)
@@ -51,7 +79,8 @@ export default function TranscriptEditor({
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
-    const unsaved = text !== recording.text || newTitle !== (recording.title || recording.id);
+    const unsaved =
+      text !== recording.text || newTitle !== (recording.title || recording.id);
     setHasUnsavedChanges(unsaved);
 
     // Auto-save debounce (2 seconds)
@@ -67,22 +96,6 @@ export default function TranscriptEditor({
     }
   };
 
-  const saveChanges = async (
-    textToSave: string = text,
-    titleToSave: string = title
-  ) => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    setIsSaving(true);
-    try {
-      await onUpdate(recording.id, textToSave, titleToSave);
-      setHasUnsavedChanges(false);
-    } catch (err) {
-      console.error("Failed to save changes:", err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleReset = () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     setTitle(recording.title || recording.id);
@@ -90,15 +103,62 @@ export default function TranscriptEditor({
     setHasUnsavedChanges(false);
   };
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
+      showToast("Copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
+  }, [text]);
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
   };
+
+  // Keyboard shortcut listener for Ctrl+S / Cmd+S, Alt+C, and Space play/pause
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isTyping =
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement ||
+        activeEl?.getAttribute("contenteditable") === "true";
+
+      // Ctrl+S / Cmd+S: Save changes
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        saveChanges(text, title);
+        showToast("Changes saved (Ctrl+S)");
+        return;
+      }
+
+      // Alt+C: Copy transcript
+      if (e.altKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        handleCopy();
+        return;
+      }
+
+      // Space: Toggle play/pause when audio loaded and not typing in text area
+      if (e.code === "Space" && !isTyping && isAudioLoaded && audioRef.current) {
+        e.preventDefault();
+        if (audioRef.current.paused) {
+          audioRef.current.play();
+        } else {
+          audioRef.current.pause();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [saveChanges, handleCopy, isAudioLoaded, text, title]);
 
   const handleDownloadMarkdown = () => {
     const formattedDate = new Date(recording.createdAt).toLocaleString(undefined, {
@@ -156,6 +216,8 @@ export default function TranscriptEditor({
 
   return (
     <div className={styles.container}>
+      {toastMessage && <div className={styles.toast}>{toastMessage}</div>}
+
       {/* Top Header */}
       <div className={styles.topBar}>
         <div className={styles.headerInfo}>
@@ -186,7 +248,7 @@ export default function TranscriptEditor({
             type="button"
             className={styles.btn}
             onClick={handleCopy}
-            title="Copy plain text"
+            title="Copy plain text (Alt+C)"
           >
             {copied ? "✓ Copied!" : "📋 Copy Text"}
           </button>
@@ -209,7 +271,7 @@ export default function TranscriptEditor({
         </div>
       </div>
 
-      {/* Audio Player Section with Lazy Loading */}
+      {/* Audio Player Section with Lazy Loading & Speed Controls */}
       <div className={styles.audioSection}>
         <div className={styles.audioHeader}>
           <span>Audio Playback</span>
@@ -233,15 +295,40 @@ export default function TranscriptEditor({
             </span>
           </div>
         ) : (
-          <audio
-            className={styles.audioPlayer}
-            controls
-            autoPlay
-            src={recording.audioUrl}
-            preload="metadata"
-          >
-            Your browser does not support the audio element.
-          </audio>
+          <div className={styles.audioControlsRow}>
+            <audio
+              ref={audioRef}
+              className={styles.audioPlayer}
+              controls
+              autoPlay
+              src={recording.audioUrl}
+              preload="metadata"
+              onPlay={() => {
+                if (audioRef.current) audioRef.current.playbackRate = playbackSpeed;
+              }}
+            >
+              Your browser does not support the audio element.
+            </audio>
+
+            <div className={styles.playbackBar}>
+              <div className={styles.speedGroup}>
+                <span className={styles.speedLabel}>Speed:</span>
+                {SPEED_OPTIONS.map((speed) => (
+                  <button
+                    key={speed}
+                    type="button"
+                    className={`${styles.speedBtn} ${
+                      playbackSpeed === speed ? styles.speedBtnActive : ""
+                    }`}
+                    onClick={() => handleSpeedChange(speed)}
+                  >
+                    {speed}x
+                  </button>
+                ))}
+              </div>
+              <span className={styles.speedLabel}>[Space] Play/Pause</span>
+            </div>
+          </div>
         )}
       </div>
 
@@ -282,8 +369,9 @@ export default function TranscriptEditor({
               className={`${styles.btn} ${styles.btnPrimary}`}
               onClick={() => saveChanges(text, title)}
               disabled={isSaving || !hasUnsavedChanges}
+              title="Save changes (Ctrl+S)"
             >
-              {isSaving ? "Saving..." : "Save Changes"}
+              {isSaving ? "Saving..." : "Save Changes (Ctrl+S)"}
             </button>
             {hasUnsavedChanges && (
               <button

@@ -19,16 +19,22 @@ export async function POST(request: NextRequest) {
     // Determine appropriate file extension based on MIME type or original name
     const mimeType = file.type || "audio/webm";
     let extension = ".webm";
-    if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
-      extension = ".mp4";
+    if (file.name && path.extname(file.name)) {
+      extension = path.extname(file.name);
+    } else if (mimeType.includes("mpeg") || mimeType.includes("mp3")) {
+      extension = ".mp3";
+    } else if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
+      extension = ".m4a";
+    } else if (mimeType.includes("aac")) {
+      extension = ".aac";
     } else if (mimeType.includes("ogg")) {
       extension = ".ogg";
     } else if (mimeType.includes("wav")) {
       extension = ".wav";
+    } else if (mimeType.includes("flac")) {
+      extension = ".flac";
     } else if (mimeType.includes("webm")) {
       extension = ".webm";
-    } else if (file.name && path.extname(file.name)) {
-      extension = path.extname(file.name);
     }
 
     const uniqueId = crypto.randomUUID().slice(0, 8);
@@ -69,6 +75,7 @@ export async function POST(request: NextRequest) {
       success: true,
       folderId,
       filename,
+      originalName: file.name || "voice-recording",
       url: audioUrl,
       filepath: destinationPath,
       size: file.size,

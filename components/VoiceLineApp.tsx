@@ -15,7 +15,6 @@ export default function VoiceLineApp() {
     useState<RecordingDetail | null>(null);
   const [isLoadingRecordings, setIsLoadingRecordings] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const fetchRecordings = useCallback(async () => {
     try {
@@ -65,18 +64,16 @@ export default function VoiceLineApp() {
     }
   }, [selectedId, isNewRecording, fetchRecordingDetail]);
 
-  const handleSelectRecording = (id: string) => {
+  const handleSelectRecording = useCallback((id: string) => {
     setSelectedId(id);
     setIsNewRecording(false);
-    setIsMobileSidebarOpen(false);
-  };
+  }, []);
 
-  const handleNewRecording = () => {
+  const handleNewRecording = useCallback(() => {
     setIsNewRecording(true);
     setSelectedId(null);
     setSelectedRecording(null);
-    setIsMobileSidebarOpen(false);
-  };
+  }, []);
 
   const handleRecordingCreated = async (folderId: string) => {
     const updatedList = await fetchRecordings();
@@ -86,7 +83,11 @@ export default function VoiceLineApp() {
     }
   };
 
-  const handleUpdate = async (id: string, newText: string, newTitle?: string) => {
+  const handleUpdate = async (
+    id: string,
+    newText: string,
+    newTitle?: string
+  ) => {
     const res = await fetch(`/api/recordings/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: {
@@ -103,7 +104,9 @@ export default function VoiceLineApp() {
     // Refresh recordings list previews & selected detail
     fetchRecordings();
     setSelectedRecording((prev) =>
-      prev && prev.id === id ? { ...prev, text: newText, title: newTitle ?? prev.title } : prev
+      prev && prev.id === id
+        ? { ...prev, text: newText, title: newTitle ?? prev.title }
+        : prev
     );
   };
 
@@ -126,6 +129,34 @@ export default function VoiceLineApp() {
     }
   };
 
+  // Global Keyboard Shortcuts (Alt+N for new recording, Escape to go back)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isTyping =
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement ||
+        activeEl?.getAttribute("contenteditable") === "true";
+
+      // Alt+N / Ctrl+N / Cmd+N (when not in native conflict): Switch to new recording
+      if ((e.altKey && e.key.toLowerCase() === "n") || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n" && !isTyping)) {
+        e.preventDefault();
+        handleNewRecording();
+        return;
+      }
+
+      // Escape: Return to active/first note if in new recording mode
+      if (e.key === "Escape" && isNewRecording && recordings.length > 0) {
+        e.preventDefault();
+        handleSelectRecording(selectedId || recordings[0].id);
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleNewRecording, handleSelectRecording, isNewRecording, recordings, selectedId]);
+
   return (
     <div className={styles.appLayout}>
       <RecordingsSidebar
@@ -144,8 +175,8 @@ export default function VoiceLineApp() {
             <div className={styles.heroIntro}>
               <h1 className={styles.heroTitle}>Record & Transcribe</h1>
               <p className={styles.heroSubtitle}>
-                Capture audio in 24kbps Opus compression and transcribe naturally
-                using OpenAI speech models.
+                Capture audio in 24kbps Opus compression or drop existing audio files
+                to transcribe naturally with OpenAI speech models.
               </p>
             </div>
             <AudioRecorder onRecordingCreated={handleRecordingCreated} />
@@ -171,6 +202,34 @@ export default function VoiceLineApp() {
             </button>
           </div>
         )}
+
+        {/* Global Shortcuts Reference Bar */}
+        <div className={styles.shortcutBar}>
+          <div className={styles.shortcutItem}>
+            <span className={styles.kbd}>Alt+N</span>
+            <span>New</span>
+          </div>
+          <span className={styles.dividerDot}>•</span>
+          <div className={styles.shortcutItem}>
+            <span className={styles.kbd}>Ctrl+S</span>
+            <span>Save</span>
+          </div>
+          <span className={styles.dividerDot}>•</span>
+          <div className={styles.shortcutItem}>
+            <span className={styles.kbd}>Space</span>
+            <span>Play/Pause</span>
+          </div>
+          <span className={styles.dividerDot}>•</span>
+          <div className={styles.shortcutItem}>
+            <span className={styles.kbd}>Alt+C</span>
+            <span>Copy</span>
+          </div>
+          <span className={styles.dividerDot}>•</span>
+          <div className={styles.shortcutItem}>
+            <span className={styles.kbd}>Esc</span>
+            <span>Back</span>
+          </div>
+        </div>
       </main>
     </div>
   );

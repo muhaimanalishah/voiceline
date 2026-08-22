@@ -168,6 +168,76 @@
   transform: translateY(-1px);
 }
 
+.divider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 1rem;
+  margin: 0.25rem 0;
+  color: #a1a1aa;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--card-border, rgba(0, 0, 0, 0.1));
+}
+
+/* DropZone Styles */
+.dropZone {
+  width: 100%;
+  padding: 1.5rem 1.25rem;
+  border: 2px dashed var(--card-border, rgba(0, 0, 0, 0.15));
+  border-radius: 1rem;
+  background: rgba(0, 0, 0, 0.015);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dropZone {
+    background: rgba(255, 255, 255, 0.02);
+  }
+}
+
+.dropZone:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.03);
+}
+
+.dropZoneActive {
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+  transform: scale(1.01);
+}
+
+.dropZoneIcon {
+  font-size: 1.75rem;
+}
+
+.dropZoneTitle {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.dropZoneSubtitle {
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
 .spinner {
   width: 22px;
   height: 22px;

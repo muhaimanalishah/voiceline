@@ -13,6 +13,7 @@ interface UploadedFileInfo {
 }
 
 interface TranscriptionInfo {
+  title?: string;
   text: string;
   model: string;
   createdAt: string;
@@ -25,10 +26,14 @@ export interface AudioRecorderProps {
   onRecordingCreated?: (folderId: string) => void;
 }
 
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB OpenAI limit
+const ACCEPTED_EXTENSIONS = [".webm", ".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac"];
+
 export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps = {}) {
   const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
@@ -41,6 +46,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Clean up timer and streams on unmount
   useEffect(() => {
@@ -121,25 +127,30 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     }
   };
 
-  const handleUpload = async (audioBlob: Blob, mimeType: string) => {
+  const processAudioUpload = async (file: File) => {
+    // Validation
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`File size (${formatFileSize(file.size)}) exceeds the 25MB limit.`);
+      return;
+    }
+
+    const extension = "." + file.name.split(".").pop()?.toLowerCase();
+    const isAudioMime = file.type.startsWith("audio/") || file.type.includes("video/webm") || file.type.includes("video/ogg");
+    const isAudioExt = ACCEPTED_EXTENSIONS.includes(extension);
+
+    if (!isAudioMime && !isAudioExt) {
+      setError("Please provide a valid audio file (.mp3, .m4a, .wav, .webm, .ogg, .aac).");
+      return;
+    }
+
     setIsUploading(true);
     setError(null);
     setTranscription(null);
     setTranscribeError(null);
 
     try {
-      let extension = "webm";
-      if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
-        extension = "mp4";
-      } else if (mimeType.includes("ogg")) {
-        extension = "ogg";
-      } else if (mimeType.includes("wav")) {
-        extension = "wav";
-      }
-
-      const file = new File([audioBlob], `audio.${extension}`, {
-        type: mimeType || audioBlob.type || "audio/webm",
-      });
+      const previewUrl = URL.createObjectURL(file);
+      setLocalAudioUrl(previewUrl);
 
       const formData = new FormData();
       formData.append("file", file);
@@ -157,7 +168,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
 
       setUploadedFile(data);
 
-      // Trigger automatic OpenAI transcription for the newly created recording subfolder
       if (data.folderId) {
         await transcribeAudio(data.folderId);
       }
@@ -167,6 +177,23 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleUploadBlob = async (audioBlob: Blob, mimeType: string) => {
+    let extension = "webm";
+    if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
+      extension = "m4a";
+    } else if (mimeType.includes("ogg")) {
+      extension = "ogg";
+    } else if (mimeType.includes("wav")) {
+      extension = "wav";
+    }
+
+    const file = new File([audioBlob], `recorded-voice.${extension}`, {
+      type: mimeType || audioBlob.type || "audio/webm",
+    });
+
+    await processAudioUpload(file);
   };
 
   const startRecording = async () => {
@@ -183,7 +210,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          channelCount: 1, // Mono audio is ideal and lightweight for speech
+          channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
@@ -193,7 +220,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
 
       const mimeType = getSupportedMimeType();
       const options: MediaRecorderOptions = {
-        audioBitsPerSecond: 24000, // 24kbps for ultra-light speech storage
+        audioBitsPerSecond: 24000,
       };
       if (mimeType) {
         options.mimeType = mimeType;
@@ -218,17 +245,14 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
         const previewUrl = URL.createObjectURL(audioBlob);
         setLocalAudioUrl(previewUrl);
 
-        // Upload recorded audio
-        await handleUpload(audioBlob, recordedMimeType);
+        await handleUploadBlob(audioBlob, recordedMimeType);
 
-        // Stop all media tracks
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => track.stop());
           streamRef.current = null;
         }
       };
 
-      // Request data in chunks (every 1s) for stream stability
       mediaRecorder.start(1000);
       setIsRecording(true);
       setDuration(0);
@@ -256,6 +280,37 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     setIsRecording(false);
   }, []);
 
+  // Drag & drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      processAudioUpload(file);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      processAudioUpload(file);
+    }
+  };
+
   const handleCopy = async () => {
     if (!transcription?.text) return;
     try {
@@ -270,9 +325,9 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
   return (
     <div className={styles.card}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Voice Recorder</h2>
+        <h2 className={styles.title}>Record or Upload Audio</h2>
         <p className={styles.subtitle}>
-          Optimized speech recording (24kbps Opus) & AI transcription
+          Capture live speech (24kbps Opus) or upload existing audio files
         </p>
       </div>
 
@@ -295,7 +350,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
         ) : isUploading ? (
           <div className={styles.loadingContainer}>
             <div className={styles.spinner} />
-            <span className={styles.loadingText}>Saving audio to server...</span>
+            <span className={styles.loadingText}>Uploading audio...</span>
           </div>
         ) : isTranscribing ? (
           <div className={styles.loadingContainer}>
@@ -342,10 +397,47 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
         )}
       </div>
 
+      {/* Drag & Drop Audio Upload Zone */}
+      {!isRecording && !isUploading && !isTranscribing && (
+        <>
+          <div className={styles.divider}>
+            <span>Or Upload Audio File</span>
+          </div>
+
+          <div
+            className={`${styles.dropZone} ${
+              isDraggingOver ? styles.dropZoneActive : ""
+            }`}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <span className={styles.dropZoneIcon}>📁</span>
+            <div className={styles.dropZoneTitle}>
+              {isDraggingOver
+                ? "Drop the audio file right here..."
+                : "Drag & drop audio file here or click to browse"}
+            </div>
+            <div className={styles.dropZoneSubtitle}>
+              Supports MP3, M4A, WAV, WebM, OGG, AAC (Max 25MB)
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="audio/*,.webm,.mp3,.m4a,.wav,.ogg,.aac,.flac"
+              style={{ display: "none" }}
+              onChange={handleFileInputChange}
+            />
+          </div>
+        </>
+      )}
+
       {uploadedFile && (
         <div className={styles.resultCard}>
           <div className={styles.resultHeader}>
-            <span className={styles.badge}>✓ Saved to public/uploads/{uploadedFile.folderId}</span>
+            <span className={styles.badge}>✓ Saved ({uploadedFile.folderId})</span>
           </div>
 
           <div className={styles.metaGrid}>
@@ -364,8 +456,8 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
               <span className={styles.metaValue}>{uploadedFile.mimeType}</span>
             </div>
             <div className={styles.metaItem}>
-              <span className={styles.metaLabel}>Codec Bitrate</span>
-              <span className={styles.metaValue}>24 kbps</span>
+              <span className={styles.metaLabel}>Codec / Quality</span>
+              <span className={styles.metaValue}>Voice Optimized</span>
             </div>
           </div>
 
@@ -380,7 +472,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
             </audio>
           )}
 
-          {/* Transcription section */}
           {isTranscribing && (
             <div className={styles.transcriptionLoading}>
               <div className={styles.spinner} />
@@ -389,7 +480,14 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
           )}
 
           {transcribeError && (
-            <div className={styles.errorBox} style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
+            <div
+              className={styles.errorBox}
+              style={{
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: "0.5rem",
+              }}
+            >
               <div>⚠️ {transcribeError}</div>
               {uploadedFile && (
                 <button
@@ -425,7 +523,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
               </p>
 
               <div className={styles.storageNote}>
-                💾 Metadata saved to <code>public/uploads/{uploadedFile.folderId}/transcription.json</code>
+                💾 Saved to storage (<code>{uploadedFile.folderId}</code>)
               </div>
             </div>
           )}
