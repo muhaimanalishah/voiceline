@@ -1,22 +1,14 @@
 .container {
   width: 100%;
-  max-width: 560px;
+  max-width: 520px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1.75rem;
   padding: 2.5rem 2rem;
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--card-border, rgba(0, 0, 0, 0.08));
-  border-radius: 1.25rem;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
-}
-
-@media (prefers-color-scheme: dark) {
-  .container {
-    --card-bg: rgba(23, 23, 23, 0.7);
-    --card-border: rgba(255, 255, 255, 0.08);
-  }
+  background: var(--background, #111113);
+  border: 1px solid var(--border, #1f1f23);
+  border-radius: 12px;
 }
 
 .header {
@@ -24,20 +16,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .title {
   font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--foreground);
+  color: #ffffff;
 }
 
 .subtitle {
-  font-size: 0.85rem;
-  color: #71717a;
-  max-width: 380px;
+  font-size: 0.82rem;
+  color: var(--muted, #71717a);
+  max-width: 360px;
   line-height: 1.45;
 }
 
@@ -45,15 +37,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  min-height: 80px;
+  gap: 0.85rem;
+  min-height: 75px;
   justify-content: center;
   width: 100%;
 }
 
 .timer {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   font-weight: 600;
   letter-spacing: 0.05em;
   color: #ef4444;
@@ -63,8 +55,8 @@
 }
 
 .liveIndicator {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   background-color: #ef4444;
   border-radius: 50%;
   animation: pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -84,8 +76,8 @@
 .waveform {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 28px;
+  gap: 3px;
+  height: 24px;
 }
 
 .waveBar {
@@ -96,10 +88,10 @@
 }
 
 .waveBar:nth-child(1) { height: 8px; animation-delay: 0.1s; }
-.waveBar:nth-child(2) { height: 18px; animation-delay: 0.25s; }
-.waveBar:nth-child(3) { height: 26px; animation-delay: 0.4s; }
-.waveBar:nth-child(4) { height: 14px; animation-delay: 0.15s; }
-.waveBar:nth-child(5) { height: 24px; animation-delay: 0.3s; }
+.waveBar:nth-child(2) { height: 16px; animation-delay: 0.25s; }
+.waveBar:nth-child(3) { height: 22px; animation-delay: 0.4s; }
+.waveBar:nth-child(4) { height: 12px; animation-delay: 0.15s; }
+.waveBar:nth-child(5) { height: 20px; animation-delay: 0.3s; }
 .waveBar:nth-child(6) { height: 10px; animation-delay: 0.5s; }
 
 @keyframes wave {
@@ -109,7 +101,7 @@
 
 .limitNote {
   font-size: 0.72rem;
-  color: #a1a1aa;
+  color: var(--muted, #71717a);
 }
 
 .actions {
@@ -123,33 +115,26 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
-  padding: 0.85rem 1.85rem;
+  gap: 0.55rem;
+  padding: 0.75rem 1.65rem;
   border-radius: 9999px;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  border: none;
+  border: 1px solid #27272a;
   cursor: pointer;
-  background: #000000;
-  color: #ffffff;
+  background: #18181b;
+  color: #ededed;
   transition: all 0.15s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
-@media (prefers-color-scheme: dark) {
-  .recordBtn {
-    background: #ededed;
-    color: #0a0a0a;
-  }
 }
 
 .recordBtn:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  background: #27272a;
+  color: #ffffff;
+  border-color: #3f3f46;
 }
 
 .recordBtn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -157,10 +142,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
-  padding: 0.85rem 1.85rem;
+  gap: 0.55rem;
+  padding: 0.75rem 1.65rem;
   border-radius: 9999px;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 600;
   border: none;
   cursor: pointer;
@@ -172,7 +157,6 @@
 
 .stopBtn:hover {
   background: #dc2626;
-  transform: translateY(-1px);
 }
 
 .divider {
@@ -180,9 +164,9 @@
   align-items: center;
   width: 100%;
   gap: 1rem;
-  color: #a1a1aa;
-  font-size: 0.72rem;
-  font-weight: 600;
+  color: var(--muted, #52525b);
+  font-size: 0.7rem;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -192,59 +176,53 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--card-border, rgba(0, 0, 0, 0.08));
+  background: var(--border, #1f1f23);
 }
 
 .dropZone {
   width: 100%;
   padding: 1.5rem 1.25rem;
-  border: 1.5px dashed var(--card-border, rgba(0, 0, 0, 0.15));
-  border-radius: 1rem;
-  background: rgba(0, 0, 0, 0.01);
+  border: 1px dashed var(--border, #27272a);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   text-align: center;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-@media (prefers-color-scheme: dark) {
-  .dropZone {
-    background: rgba(255, 255, 255, 0.015);
-  }
-}
-
 .dropZone:hover {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.03);
+  border-color: #3f3f46;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .dropZoneActive {
-  border-color: #3b82f6 !important;
-  background: rgba(59, 130, 246, 0.08) !important;
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.05) !important;
 }
 
 .dropIcon {
-  color: #3b82f6;
+  color: var(--muted, #71717a);
 }
 
 .dropTitle {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--foreground);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--foreground, #ededed);
 }
 
 .dropSubtitle {
-  font-size: 0.75rem;
-  color: #71717a;
+  font-size: 0.72rem;
+  color: var(--muted, #71717a);
 }
 
 .spinner {
   animation: spin 0.9s linear infinite;
-  color: #3b82f6;
+  color: #60a5fa;
 }
 
 @keyframes spin {
@@ -254,27 +232,21 @@
 .loadingContainer {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  font-size: 0.88rem;
-  color: #71717a;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  color: var(--muted, #a1a1aa);
   font-weight: 500;
 }
 
 .errorBox {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 0.85rem;
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 0.75rem;
-  color: #dc2626;
-  font-size: 0.82rem;
+  border-radius: 6px;
+  color: #f87171;
+  font-size: 0.78rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  .errorBox {
-    color: #f87171;
-  }
 }

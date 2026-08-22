@@ -2,8 +2,8 @@
   display: flex;
   height: 100vh;
   width: 100vw;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--background, #111113);
+  color: var(--foreground, #ededed);
   overflow: hidden;
 }
 
@@ -15,6 +15,7 @@
   align-items: center;
   position: relative;
   overflow: hidden;
+  background: var(--background, #111113);
 }
 
 .recorderWorkspace {
@@ -32,20 +33,20 @@
   display: none;
   width: 100%;
   padding: 0.75rem 1rem;
-  background: var(--card-bg, #ffffff);
-  border-bottom: 1px solid var(--card-border, rgba(0, 0, 0, 0.08));
+  background: var(--background, #111113);
+  border-bottom: 1px solid var(--border, #1f1f23);
   align-items: center;
   justify-content: space-between;
 }
 
 .menuBtn {
   background: transparent;
-  border: 1px solid var(--card-border, rgba(0, 0, 0, 0.15));
+  border: 1px solid var(--border, #1f1f23);
   border-radius: 6px;
   padding: 0.35rem 0.65rem;
   font-size: 0.85rem;
   cursor: pointer;
-  color: var(--foreground);
+  color: var(--foreground, #ededed);
 }
 
 .loadingSpinner {
@@ -59,27 +60,20 @@
 /* Floating Shortcut Helper */
 .shortcutBar {
   position: fixed;
-  bottom: 0.75rem;
-  right: 1.5rem;
+  bottom: 0.65rem;
+  right: 2.5rem;
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.3rem 0.75rem;
-  background: var(--card-bg, rgba(255, 255, 255, 0.85));
-  border: 1px solid var(--card-border, rgba(0, 0, 0, 0.08));
+  padding: 0.25rem 0.65rem;
+  background: rgba(24, 24, 27, 0.8);
+  border: 1px solid var(--border, #27272a);
   border-radius: 9999px;
-  backdrop-filter: blur(10px);
-  font-size: 0.7rem;
-  color: #71717a;
+  backdrop-filter: blur(8px);
+  font-size: 0.68rem;
+  color: var(--muted, #71717a);
   z-index: 40;
   pointer-events: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  .shortcutBar {
-    --card-bg: rgba(23, 23, 23, 0.85);
-    --card-border: rgba(255, 255, 255, 0.1);
-  }
 }
 
 .shortcutItem {
@@ -90,24 +84,17 @@
 
 .kbd {
   display: inline-block;
-  padding: 0.05rem 0.3rem;
+  padding: 0.05rem 0.25rem;
   font-size: 0.62rem;
   font-family: ui-monospace, monospace;
-  font-weight: 600;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px solid var(--card-border, rgba(0, 0, 0, 0.08));
-  color: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  .kbd {
-    background: rgba(255, 255, 255, 0.1);
-  }
+  font-weight: 500;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d4d4d8;
 }
 
 .dividerDot {
-  color: #a1a1aa;
+  color: #3f3f46;
 }
 
 @media (max-width: 768px) {

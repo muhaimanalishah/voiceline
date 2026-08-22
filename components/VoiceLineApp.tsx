@@ -51,37 +51,70 @@ export default function VoiceLineApp() {
     }
   };
 
-  const fetchRecordingDetail = useCallback(async (id: string) => {
-    setIsLoadingDetail(true);
-    try {
-      const res = await fetch(`/api/recordings/${encodeURIComponent(id)}`);
-      const data = await res.json();
-      if (res.ok && data.recording) {
-        setSelectedRecording(data.recording);
-      } else {
-        setSelectedRecording(null);
-      }
-    } catch (err) {
-      console.error("Failed to fetch recording detail:", err);
-      setSelectedRecording(null);
-    } finally {
-      setIsLoadingDetail(false);
-    }
-  }, []);
-
   // Initial load
   useEffect(() => {
-    fetchRecordings(1, false);
-  }, [fetchRecordings]);
+    let ignore = false;
+    const loadInitial = async () => {
+      try {
+        const res = await fetch(`/api/recordings?page=1&limit=${PAGE_SIZE}`);
+        const data = await res.json();
+        if (!ignore && res.ok && data.recordings) {
+          setRecordings(data.recordings);
+          setTotalCount(data.total || 0);
+          setHasMore(data.hasMore || false);
+          setCurrentPage(data.page || 1);
+        }
+      } catch (err) {
+        console.error("Failed to load initial recordings:", err);
+      } finally {
+        if (!ignore) {
+          setIsLoadingRecordings(false);
+        }
+      }
+    };
+    loadInitial();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Load detail when selectedId changes and not in new recording mode
   useEffect(() => {
-    if (selectedId && !isNewRecording) {
-      fetchRecordingDetail(selectedId);
-    } else {
-      setSelectedRecording(null);
+    if (!selectedId || isNewRecording) {
+      return;
     }
-  }, [selectedId, isNewRecording, fetchRecordingDetail]);
+
+    let ignore = false;
+
+    const loadDetail = async () => {
+      setIsLoadingDetail(true);
+      try {
+        const res = await fetch(`/api/recordings/${encodeURIComponent(selectedId)}`);
+        const data = await res.json();
+        if (!ignore) {
+          if (res.ok && data.recording) {
+            setSelectedRecording(data.recording);
+          } else {
+            setSelectedRecording(null);
+          }
+        }
+      } catch (err) {
+        if (!ignore) {
+          console.error("Failed to fetch recording detail:", err);
+          setSelectedRecording(null);
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingDetail(false);
+        }
+      }
+    };
+
+    loadDetail();
+    return () => {
+      ignore = true;
+    };
+  }, [selectedId, isNewRecording]);
 
   const handleSelectRecording = useCallback((id: string) => {
     setSelectedId(id);

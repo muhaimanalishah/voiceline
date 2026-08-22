@@ -334,4 +334,3 @@ export class FsRecordingStore implements RecordingStore {
 }
 
 export const fsRecordingStore = new FsRecordingStore();
-export const recordingStore = fsRecordingStore;

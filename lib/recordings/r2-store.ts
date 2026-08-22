@@ -56,7 +56,7 @@ export class R2RecordingStore implements RecordingStore {
     }
   }
 
-  private async getAudioUrl(id: string, audioFile: string): Promise<string> {
+  async getAudioUrl(id: string, audioFile: string): Promise<string> {
     const key = `recordings/${id}/${audioFile}`;
     if (this.publicUrl) {
       return `${this.publicUrl}/${key}`;
@@ -393,6 +393,24 @@ export class R2RecordingStore implements RecordingStore {
       return true;
     } catch (error) {
       console.error(`Failed to delete recording ${id} from R2:`, error);
+      return false;
+    }
+  }
+
+  async deleteAudioFile(id: string, fileName: string): Promise<boolean> {
+    if (!this.bucket) return false;
+    try {
+      const client = this.getClient();
+      const deleteCmd = new DeleteObjectsCommand({
+        Bucket: this.bucket,
+        Delete: {
+          Objects: [{ Key: `recordings/${id}/${fileName}` }],
+        },
+      });
+      await client.send(deleteCmd);
+      return true;
+    } catch (error) {
+      console.error(`Failed to delete audio file ${fileName} for ${id} from R2:`, error);
       return false;
     }
   }

@@ -75,7 +75,7 @@ export default function RecordingsSidebar({
       <div className={styles.header}>
         <div className={styles.brandRow}>
           <div className={styles.brand}>
-            <Mic className={styles.brandIcon} size={18} />
+            <Mic className={styles.brandIcon} size={16} />
             <span>VoiceLine</span>
           </div>
         </div>
@@ -86,13 +86,17 @@ export default function RecordingsSidebar({
             isNewRecording ? styles.newBtnActive : ""
           }`}
           onClick={onNewRecording}
+          title="New Note (Alt+N)"
         >
-          <Plus size={15} />
-          <span>New Note</span>
+          <div className={styles.newBtnLabel}>
+            <Plus size={14} />
+            <span>New Note</span>
+          </div>
+          <span className={styles.shortcutHint}>⌥N</span>
         </button>
 
         <div className={styles.searchBox}>
-          <Search className={styles.searchIcon} size={14} />
+          <Search className={styles.searchIcon} size={13} />
           <input
             type="text"
             className={styles.searchInput}
@@ -106,7 +110,7 @@ export default function RecordingsSidebar({
       <div className={styles.listContainer}>
         {filteredRecordings.length === 0 ? (
           <div className={styles.emptyState}>
-            <FileText size={24} style={{ color: "#a1a1aa" }} />
+            <FileText size={20} />
             <span>
               {searchQuery ? "No matching notes found" : "No notes yet"}
             </span>
@@ -122,19 +126,14 @@ export default function RecordingsSidebar({
                   isSelected ? styles.itemActive : ""
                 }`}
                 onClick={() => onSelectRecording(rec.id)}
+                title={rec.title || rec.id}
               >
-                <div className={styles.itemHeader}>
-                  <span className={styles.itemTitle}>
-                    {rec.title || rec.id}
-                  </span>
-                  <span className={styles.itemDate}>
-                    {formatDate(rec.createdAt)}
-                  </span>
-                </div>
-
-                <p className={styles.itemSnippet} dir="auto">
-                  {rec.textPreview}
-                </p>
+                <span className={styles.itemTitle}>
+                  {rec.title || rec.id}
+                </span>
+                <span className={styles.itemDate}>
+                  {formatDate(rec.createdAt)}
+                </span>
               </button>
             );
           })
@@ -149,12 +148,12 @@ export default function RecordingsSidebar({
           >
             {isLoadingMore ? (
               <>
-                <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} />
-                <span>Loading notes...</span>
+                <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} />
+                <span>Loading...</span>
               </>
             ) : (
               <>
-                <ChevronDown size={13} />
+                <ChevronDown size={12} />
                 <span>Load More</span>
               </>
             )}
@@ -164,7 +163,7 @@ export default function RecordingsSidebar({
 
       <div className={styles.footer}>
         <span>{totalCount || recordings.length} notes</span>
-        <span>VoiceLine AI</span>
+        <span>VoiceLine</span>
       </div>
     </aside>
   );

@@ -5,6 +5,9 @@ import path from "path";
 import crypto from "crypto";
 import OpenAI from "openai";
 import { r2RecordingStore } from "@/lib/recordings/r2-store";
+import { drizzleRecordingStore } from "@/lib/recordings/drizzle-store";
+import { TranscriptionJsonData } from "@/lib/recordings/types";
+import { isLocalMode } from "@/lib/recordings";
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +49,10 @@ export async function POST(request: NextRequest) {
               f.endsWith(".webm") ||
               f.endsWith(".mp4") ||
               f.endsWith(".wav") ||
-              f.endsWith(".ogg")
+              f.endsWith(".ogg") ||
+              f.endsWith(".mp3") ||
+              f.endsWith(".m4a") ||
+              f.endsWith(".aac")
           );
           if (matchedAudio) {
             audioFileName = matchedAudio;
@@ -58,8 +64,14 @@ export async function POST(request: NextRequest) {
       if (!audioFilePath && file) {
         const mimeType = file.type || "audio/webm";
         let extension = ".webm";
-        if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
-          extension = ".mp4";
+        if (file.name && path.extname(file.name)) {
+          extension = path.extname(file.name);
+        } else if (mimeType.includes("mpeg") || mimeType.includes("mp3")) {
+          extension = ".mp3";
+        } else if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
+          extension = ".m4a";
+        } else if (mimeType.includes("aac")) {
+          extension = ".aac";
         } else if (mimeType.includes("ogg")) {
           extension = ".ogg";
         } else if (mimeType.includes("wav")) {
@@ -79,7 +91,8 @@ export async function POST(request: NextRequest) {
         audioFilePath = path.join(recordingDir, audioFileName);
         await fs.writeFile(audioFilePath, buffer);
 
-        if (process.env.STORAGE_PROVIDER === "r2") {
+        // In Cloud mode (default), upload to Cloudflare R2
+        if (!isLocalMode()) {
           try {
             await r2RecordingStore.saveAudioFile(
               folderId,
@@ -88,7 +101,7 @@ export async function POST(request: NextRequest) {
               mimeType
             );
           } catch (err) {
-            console.error("Failed to upload audio to R2:", err);
+            console.error("Failed to upload audio to Cloudflare R2:", err);
           }
         }
       }
@@ -105,7 +118,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Prevent path traversal
       folderId = path.basename(rawFolderId);
       const targetDir = path.join(uploadsRoot, folderId);
 
@@ -117,7 +129,10 @@ export async function POST(request: NextRequest) {
             f.endsWith(".webm") ||
             f.endsWith(".mp4") ||
             f.endsWith(".wav") ||
-            f.endsWith(".ogg")
+            f.endsWith(".ogg") ||
+            f.endsWith(".mp3") ||
+            f.endsWith(".m4a") ||
+            f.endsWith(".aac")
         );
         if (!matchedAudio) {
           return NextResponse.json(
@@ -142,7 +157,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call OpenAI Audio Transcriptions API without script-forcing prompt
+    // Call OpenAI Audio Transcriptions API
     const audioStream = fsSync.createReadStream(audioFilePath);
     const transcription = await openai.audio.transcriptions.create({
       file: audioStream,
@@ -157,16 +172,26 @@ export async function POST(request: NextRequest) {
       year: "numeric",
     })}`;
 
-    const transcriptionData = {
+    let audioFileSize = 0;
+    try {
+      const stat = await fs.stat(audioFilePath);
+      audioFileSize = stat.size;
+    } catch {
+      // Ignore stat error
+    }
+
+    const transcriptionData: TranscriptionJsonData = {
       title: defaultTitle,
       text: transcriptionText,
+      rawTranscript: transcriptionText,
       model,
       createdAt,
       audioFile: audioFileName,
+      audioStatus: "active",
       duration: null,
     };
 
-    // Save transcription.json inside the recording subfolder
+    // 1. Save transcription.json on disk
     const jsonFilePath = path.join(uploadsRoot, folderId, "transcription.json");
     await fs.writeFile(
       jsonFilePath,
@@ -174,8 +199,8 @@ export async function POST(request: NextRequest) {
       "utf-8"
     );
 
-    // Save to R2 if configured
-    if (process.env.STORAGE_PROVIDER === "r2") {
+    // 2. In Cloud mode, save transcription.json metadata to R2
+    if (!isLocalMode()) {
       try {
         await r2RecordingStore.saveTranscriptionJson(folderId, transcriptionData);
       } catch (err) {
@@ -183,13 +208,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 3. Save to PostgreSQL with Drizzle ORM (Cloud mode default)
+    try {
+      await drizzleRecordingStore.saveRecording({
+        id: folderId,
+        title: defaultTitle,
+        transcript: transcriptionText,
+        rawTranscript: transcriptionText,
+        modelUsed: model,
+        audioKey: `recordings/${folderId}/${audioFileName}`,
+        audioStatus: "active",
+        audioUrl: `/uploads/${folderId}/${audioFileName}`,
+        audioFile: audioFileName,
+        size: audioFileSize,
+        duration: null,
+        createdAt,
+      });
+    } catch (dbErr) {
+      console.warn("Could not save new recording to database:", dbErr);
+    }
+
     return NextResponse.json({
       success: true,
       title: defaultTitle,
       text: transcriptionText,
+      rawTranscript: transcriptionText,
       model,
       createdAt,
       audioFile: audioFileName,
+      audioStatus: "active",
       folderId,
       transcriptionJsonUrl: `/uploads/${folderId}/transcription.json`,
     });

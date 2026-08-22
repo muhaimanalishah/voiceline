@@ -3,9 +3,25 @@ import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
 import { r2RecordingStore } from "@/lib/recordings/r2-store";
+import { validateCloudEnv, isLocalMode } from "@/lib/recordings";
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate Cloud environment if not in local mode
+    if (!isLocalMode()) {
+      const validation = validateCloudEnv();
+      if (!validation.valid) {
+        return NextResponse.json(
+          {
+            error: `Cloud storage is not configured. Missing environment variables: ${validation.missing.join(
+              ", "
+            )}. Please set them or set APP_MODE=local for offline mode.`,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
 
@@ -50,20 +66,19 @@ export async function POST(request: NextRequest) {
     const folderId = `recording-${timestamp}-${uniqueId}`;
     const filename = `audio${extension}`;
 
-    // Target upload directory: public/uploads/<folderId>/
-    const recordingDir = path.join(process.cwd(), "public", "uploads", folderId);
-    await fs.mkdir(recordingDir, { recursive: true });
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const destinationPath = path.join(recordingDir, filename);
 
+    // Save locally for temporary processing during transcription / local fallback
+    const recordingDir = path.join(process.cwd(), "public", "uploads", folderId);
+    await fs.mkdir(recordingDir, { recursive: true });
+    const destinationPath = path.join(recordingDir, filename);
     await fs.writeFile(destinationPath, buffer);
 
     let audioUrl = `/uploads/${folderId}/${filename}`;
 
-    // If R2 storage is active, upload audio file to Cloudflare R2
-    if (process.env.STORAGE_PROVIDER === "r2") {
+    // In Cloud mode (default), upload to Cloudflare R2
+    if (!isLocalMode()) {
       try {
         const r2Url = await r2RecordingStore.saveAudioFile(
           folderId,
@@ -75,7 +90,7 @@ export async function POST(request: NextRequest) {
           audioUrl = r2Url;
         }
       } catch (err) {
-        console.error("Failed to upload audio to R2:", err);
+        console.error("Failed to upload audio to Cloudflare R2:", err);
       }
     }
 

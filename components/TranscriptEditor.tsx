@@ -7,10 +7,10 @@ import {
   Download,
   Trash2,
   Play,
-  Volume2,
+  RotateCcw,
+  VolumeX,
   Loader2,
   CheckCircle2,
-  Clock,
 } from "lucide-react";
 import { RecordingDetail } from "@/lib/recordings/types";
 import styles from "./TranscriptEditor.module.css";
@@ -30,14 +30,23 @@ export default function TranscriptEditor({
 }: TranscriptEditorProps) {
   const [title, setTitle] = useState(recording.title || recording.id);
   const [text, setText] = useState(recording.text);
+  const [rawTranscript, setRawTranscript] = useState(
+    recording.rawTranscript || recording.text
+  );
+  const [audioStatus, setAudioStatus] = useState<"active" | "deleted">(
+    recording.audioStatus || "active"
+  );
   const [isAudioLoaded, setIsAudioLoaded] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [isDeletingAudio, setIsDeletingAudio] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [copied, setCopied] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeleteAudioModal, setShowDeleteAudioModal] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -46,15 +55,6 @@ export default function TranscriptEditor({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2000);
   };
-
-  useEffect(() => {
-    setTitle(recording.title || recording.id);
-    setText(recording.text);
-    setIsAudioLoaded(false);
-    setPlaybackSpeed(1);
-    setHasUnsavedChanges(false);
-    setShowDeleteModal(false);
-  }, [recording.id, recording.title, recording.text]);
 
   const saveChanges = useCallback(
     async (textToSave: string = text, titleToSave: string = title) => {
@@ -108,7 +108,7 @@ export default function TranscriptEditor({
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      showToast("Copied to clipboard!");
+      showToast("Copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
@@ -122,7 +122,60 @@ export default function TranscriptEditor({
     }
   };
 
-  // Keyboard shortcut listener
+  const handleResetToRaw = async () => {
+    setIsResetting(true);
+    try {
+      const res = await fetch(`/api/recordings/${encodeURIComponent(recording.id)}/reset`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.text) {
+        setText(data.text);
+        setRawTranscript(data.rawTranscript || data.text);
+        setHasUnsavedChanges(false);
+        await onUpdate(recording.id, data.text, title);
+        showToast("Reset to original transcript");
+      } else {
+        // Fallback to local rawTranscript
+        setText(rawTranscript);
+        setHasUnsavedChanges(false);
+        await onUpdate(recording.id, rawTranscript, title);
+        showToast("Reset to original transcript");
+      }
+    } catch (err) {
+      console.error("Failed to reset transcript:", err);
+      setText(rawTranscript);
+      setHasUnsavedChanges(false);
+      showToast("Reset locally");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleDeleteAudioOnly = async () => {
+    setIsDeletingAudio(true);
+    try {
+      const res = await fetch(
+        `/api/recordings/${encodeURIComponent(recording.id)}/delete-audio`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        setAudioStatus("deleted");
+        setIsAudioLoaded(false);
+        showToast("Audio file deleted (transcript preserved)");
+      } else {
+        throw new Error("Failed to delete audio");
+      }
+    } catch (err) {
+      console.error("Delete audio error:", err);
+      showToast("Could not delete audio file");
+    } finally {
+      setIsDeletingAudio(false);
+      setShowDeleteAudioModal(false);
+    }
+  };
+
+  // Keyboard shortcut listener (Ctrl+S, Alt+C, Space)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
@@ -135,7 +188,7 @@ export default function TranscriptEditor({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
         saveChanges(text, title);
-        showToast("Changes saved (Ctrl+S)");
+        showToast("Saved");
         return;
       }
 
@@ -146,7 +199,7 @@ export default function TranscriptEditor({
         return;
       }
 
-      // Space: Toggle play/pause when audio loaded and not typing
+      // Space: Toggle play/pause when audio loaded and not actively typing in an input
       if (e.code === "Space" && !isTyping && isAudioLoaded && audioRef.current) {
         e.preventDefault();
         if (audioRef.current.paused) {
@@ -172,7 +225,7 @@ export default function TranscriptEditor({
       ``,
       `- **Date:** ${formattedDate}`,
       `- **Model:** ${recording.model}`,
-      `- **Audio File:** \`${recording.audioFile}\``,
+      `- **Audio Status:** ${audioStatus}`,
       ``,
       `---`,
       ``,
@@ -209,10 +262,12 @@ export default function TranscriptEditor({
 
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
   const charCount = text.length;
+  const hasModifiedRaw = rawTranscript && text.trim() !== rawTranscript.trim();
 
   const formattedDate = new Date(recording.createdAt).toLocaleString(undefined, {
     month: "short",
     day: "numeric",
+    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -221,117 +276,152 @@ export default function TranscriptEditor({
     <div className={styles.workspace}>
       {toastMessage && <div className={styles.toast}>{toastMessage}</div>}
 
-      {/* Top Header Bar */}
-      <div className={styles.topBar}>
-        <div className={styles.titleArea}>
-          <input
-            type="text"
-            className={styles.titleInput}
-            value={title}
-            onChange={handleTitleChange}
-            onBlur={handleTitleBlur}
-            placeholder="Untitled Note..."
-            aria-label="Note title"
-          />
-          <div className={styles.metaSubtitle}>
-            <span>🕒 {formattedDate}</span>
-            <span>•</span>
-            <span className={styles.modelTag}>{recording.model}</span>
+      <div className={styles.docContainer}>
+        {/* Top Header Bar */}
+        <div className={styles.headerBar}>
+          <div className={styles.titleArea}>
+            <input
+              type="text"
+              className={styles.titleInput}
+              value={title}
+              onChange={handleTitleChange}
+              onBlur={handleTitleBlur}
+              placeholder="Untitled Note..."
+              aria-label="Note title"
+            />
+            <div className={styles.metaRow}>
+              <span>{formattedDate}</span>
+              <span className={styles.metaDot}>•</span>
+              <span className={styles.modelBadge}>{recording.model}</span>
+            </div>
+          </div>
+
+          <div className={styles.toolbarActions}>
+            {hasModifiedRaw ? (
+              <button
+                type="button"
+                className={styles.actionBtn}
+                onClick={handleResetToRaw}
+                disabled={isResetting}
+                title="Reset to original OpenAI transcript"
+              >
+                <RotateCcw size={13} />
+                <span>Reset</span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={handleCopy}
+              title="Copy text (Alt+C)"
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              <span>{copied ? "Copied" : "Copy"}</span>
+            </button>
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={handleDownloadMarkdown}
+              title="Export Markdown"
+            >
+              <Download size={14} />
+              <span>Export</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.actionBtn} ${styles.dangerBtn}`}
+              onClick={() => setShowDeleteModal(true)}
+              title="Delete note"
+            >
+              <Trash2 size={14} />
+            </button>
           </div>
         </div>
 
-        <div className={styles.toolbarActions}>
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handleCopy}
-            title="Copy text (Alt+C)"
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-            <span>{copied ? "Copied" : "Copy"}</span>
-          </button>
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handleDownloadMarkdown}
-            title="Download Markdown"
-          >
-            <Download size={14} />
-            <span>Export</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.dangerBtn}`}
-            onClick={() => setShowDeleteModal(true)}
-            title="Delete note"
-          >
-            <Trash2 size={14} />
-          </button>
+        {/* Audio Player Strip */}
+        <div className={styles.audioSection}>
+          <div className={styles.audioControlsLeft}>
+            {audioStatus === "deleted" ? (
+              <span className={styles.audioDeletedBadge}>
+                <VolumeX size={13} />
+                <span>Audio deleted • Transcript preserved</span>
+              </span>
+            ) : !isAudioLoaded ? (
+              <button
+                type="button"
+                className={styles.lazyAudioBtn}
+                onClick={() => setIsAudioLoaded(true)}
+              >
+                <Play size={12} fill="currentColor" />
+                <span>Load Audio</span>
+                {recording.size ? (
+                  <span style={{ color: "#71717a", fontSize: "0.7rem" }}>
+                    ({(recording.size / 1024).toFixed(0)} KB)
+                  </span>
+                ) : null}
+              </button>
+            ) : (
+              <audio
+                ref={audioRef}
+                className={styles.audioPlayer}
+                controls
+                autoPlay
+                src={recording.audioUrl}
+                preload="metadata"
+                onPlay={() => {
+                  if (audioRef.current) audioRef.current.playbackRate = playbackSpeed;
+                }}
+              >
+                Your browser does not support the audio element.
+              </audio>
+            )}
+          </div>
+
+          <div className={styles.audioControlsRight}>
+            {isAudioLoaded && audioStatus === "active" && (
+              <>
+                <div className={styles.speedGroup}>
+                  {SPEED_OPTIONS.map((speed) => (
+                    <button
+                      key={speed}
+                      type="button"
+                      className={`${styles.speedBtn} ${
+                        playbackSpeed === speed ? styles.speedBtnActive : ""
+                      }`}
+                      onClick={() => handleSpeedChange(speed)}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  className={`${styles.actionBtn} ${styles.dangerBtn}`}
+                  onClick={() => setShowDeleteAudioModal(true)}
+                  title="Delete audio file to save storage (keeps transcript)"
+                >
+                  <VolumeX size={13} />
+                  <span>Delete Audio</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Expansive Main Editor Area */}
+        <div className={styles.editorArea}>
+          <textarea
+            className={styles.textarea}
+            dir="auto"
+            value={text}
+            onChange={handleTextChange}
+            placeholder="Write note or start speaking..."
+          />
         </div>
       </div>
 
-      {/* Audio Strip with Lazy Loading & Speed Options */}
-      <div className={styles.audioStrip}>
-        {!isAudioLoaded ? (
-          <button
-            type="button"
-            className={styles.lazyAudioLoadBtn}
-            onClick={() => setIsAudioLoaded(true)}
-          >
-            <Play size={13} fill="currentColor" />
-            <span>Load Audio Player</span>
-            {recording.size ? (
-              <span style={{ color: "#a1a1aa", fontSize: "0.72rem" }}>
-                ({(recording.size / 1024).toFixed(0)} KB)
-              </span>
-            ) : null}
-          </button>
-        ) : (
-          <>
-            <audio
-              ref={audioRef}
-              className={styles.audioPlayer}
-              controls
-              autoPlay
-              src={recording.audioUrl}
-              preload="metadata"
-              onPlay={() => {
-                if (audioRef.current) audioRef.current.playbackRate = playbackSpeed;
-              }}
-            >
-              Your browser does not support the audio element.
-            </audio>
-
-            <div className={styles.speedGroup}>
-              {SPEED_OPTIONS.map((speed) => (
-                <button
-                  key={speed}
-                  type="button"
-                  className={`${styles.speedBtn} ${
-                    playbackSpeed === speed ? styles.speedBtnActive : ""
-                  }`}
-                  onClick={() => handleSpeedChange(speed)}
-                >
-                  {speed}x
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Expansive Main Editor Area */}
-      <div className={styles.editorContainer}>
-        <textarea
-          className={styles.textarea}
-          dir="auto"
-          value={text}
-          onChange={handleTextChange}
-          placeholder="Start typing or listen to your recording transcript..."
-        />
-      </div>
-
-      {/* Bottom Status & Info Bar */}
+      {/* Subtle Bottom Status Bar */}
       <div className={styles.bottomBar}>
         <div className={styles.statsGroup}>
           <span>{wordCount} words</span>
@@ -342,26 +432,26 @@ export default function TranscriptEditor({
         <div className={styles.saveStatus}>
           {isSaving ? (
             <span className={styles.statusSaving}>
-              <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite", display: "inline" }} /> Saving...
+              <Loader2 size={11} style={{ animation: "spin 0.8s linear infinite", display: "inline" }} /> Saving
             </span>
           ) : hasUnsavedChanges ? (
-            <span className={styles.statusUnsaved}>● Unsaved</span>
+            <span className={styles.statusUnsaved}>● Unsaved edits</span>
           ) : (
             <span className={styles.statusSaved}>
-              <CheckCircle2 size={12} style={{ display: "inline", verticalAlign: "middle" }} /> Saved
+              <CheckCircle2 size={11} style={{ display: "inline", verticalAlign: "middle" }} /> Saved
             </span>
           )}
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Note Confirmation Modal */}
       {showDeleteModal && (
         <div className={styles.modalBackdrop}>
           <div className={styles.modalContent}>
             <h3 className={styles.modalTitle}>Delete Note</h3>
             <p className={styles.modalText}>
               Are you sure you want to delete <strong>{title || recording.id}</strong>?
-              This cannot be undone.
+              This will permanently remove the note and all its assets.
             </p>
             <div className={styles.modalActions}>
               <button
@@ -379,6 +469,36 @@ export default function TranscriptEditor({
                 disabled={isDeleting}
               >
                 {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Audio Only Confirmation Modal */}
+      {showDeleteAudioModal && (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalContent}>
+            <h3 className={styles.modalTitle}>Delete Audio File</h3>
+            <p className={styles.modalText}>
+              Delete the audio recording for <strong>{title || recording.id}</strong> to save storage space? The transcript will remain saved and editable.
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.actionBtn}
+                onClick={() => setShowDeleteAudioModal(false)}
+                disabled={isDeletingAudio}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`${styles.actionBtn} ${styles.dangerBtn}`}
+                onClick={handleDeleteAudioOnly}
+                disabled={isDeletingAudio}
+              >
+                {isDeletingAudio ? "Deleting Audio..." : "Delete Audio"}
               </button>
             </div>
           </div>

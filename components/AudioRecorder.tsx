@@ -74,16 +74,46 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     return new Promise((resolve) => {
       try {
         const audio = document.createElement("audio");
+        audio.preload = "metadata";
         const objectUrl = URL.createObjectURL(file);
         audio.src = objectUrl;
+
+        const cleanup = () => {
+          URL.revokeObjectURL(objectUrl);
+        };
+
         audio.onloadedmetadata = () => {
-          URL.revokeObjectURL(objectUrl);
-          resolve(audio.duration || 0);
+          let duration = audio.duration;
+
+          // In Chrome/Chromium, WebM blobs from MediaRecorder report duration as Infinity until sought
+          if (duration === Infinity || isNaN(duration)) {
+            audio.currentTime = 1e101;
+            audio.ontimeupdate = () => {
+              audio.ontimeupdate = null;
+              duration = audio.duration;
+              if (duration === Infinity || isNaN(duration)) {
+                duration = audio.currentTime;
+              }
+              cleanup();
+              resolve(Number.isFinite(duration) ? duration : 0);
+            };
+            return;
+          }
+
+          cleanup();
+          resolve(Number.isFinite(duration) ? duration : 0);
         };
+
         audio.onerror = () => {
-          URL.revokeObjectURL(objectUrl);
-          resolve(0); // If browser cannot probe duration, fallback
+          cleanup();
+          resolve(0); // If browser cannot probe duration, allow upload to proceed
         };
+
+        // Fallback timeout in case metadata event never fires
+        setTimeout(() => {
+          cleanup();
+          resolve(0);
+        }, 1500);
       } catch {
         resolve(0);
       }
@@ -142,7 +172,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
 
     // 2. Duration Validation
     const audioDuration = await checkAudioDuration(file);
-    if (audioDuration > MAX_RECORDING_SECONDS) {
+    if (Number.isFinite(audioDuration) && audioDuration > MAX_RECORDING_SECONDS) {
       const durationMins = Math.ceil(audioDuration / 60);
       setError(`Audio duration (${durationMins} mins) exceeds the 10-minute limit.`);
       return;
