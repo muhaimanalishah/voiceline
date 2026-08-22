@@ -25,6 +25,7 @@ export default function RecordingsSidebar({
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return (
+      (item.title && item.title.toLowerCase().includes(query)) ||
       item.textPreview.toLowerCase().includes(query) ||
       item.id.toLowerCase().includes(query) ||
       item.model.toLowerCase().includes(query)
@@ -88,7 +89,7 @@ export default function RecordingsSidebar({
           <input
             type="text"
             className={styles.searchInput}
-            placeholder="Search transcripts..."
+            placeholder="Search notes & transcripts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -116,13 +117,19 @@ export default function RecordingsSidebar({
                 onClick={() => onSelectRecording(rec.id)}
               >
                 <div className={styles.itemHeader}>
-                  <span className={styles.itemDate}>
-                    {formatDate(rec.createdAt)}
+                  <span className={styles.itemTitle}>
+                    {rec.title || rec.id}
                   </span>
                   {rec.size ? (
-                    <span>{(rec.size / 1024).toFixed(0)} KB</span>
+                    <span style={{ fontSize: "0.7rem", color: "#a1a1aa" }}>
+                      {(rec.size / 1024).toFixed(0)} KB
+                    </span>
                   ) : null}
                 </div>
+
+                <span className={styles.itemDate}>
+                  🕒 {formatDate(rec.createdAt)}
+                </span>
 
                 <p className={styles.itemSnippet} dir="auto">
                   {rec.textPreview}
@@ -138,7 +145,7 @@ export default function RecordingsSidebar({
       </div>
 
       <div className={styles.itemCount}>
-        {recordings.length} {recordings.length === 1 ? "recording" : "recordings"} stored locally
+        {recordings.length} {recordings.length === 1 ? "note" : "notes"} saved
       </div>
     </aside>
   );

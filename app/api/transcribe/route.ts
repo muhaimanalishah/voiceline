@@ -4,6 +4,7 @@ import fsSync from "fs";
 import path from "path";
 import crypto from "crypto";
 import OpenAI from "openai";
+import { r2RecordingStore } from "@/lib/recordings/r2-store";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,15 +35,23 @@ export async function POST(request: NextRequest) {
       const paramFolderId = formData.get("folderId") as string | null;
 
       if (paramFolderId) {
-        // Folder already exists or was provided
         const sanitizedId = path.basename(paramFolderId);
         folderId = sanitizedId;
         const targetDir = path.join(uploadsRoot, sanitizedId);
-        const files = await fs.readdir(targetDir);
-        const matchedAudio = files.find((f) => f.startsWith("audio.") || f.endsWith(".webm") || f.endsWith(".mp4") || f.endsWith(".wav") || f.endsWith(".ogg"));
-        if (matchedAudio) {
-          audioFileName = matchedAudio;
-          audioFilePath = path.join(targetDir, matchedAudio);
+        if (fsSync.existsSync(targetDir)) {
+          const files = await fs.readdir(targetDir);
+          const matchedAudio = files.find(
+            (f) =>
+              f.startsWith("audio.") ||
+              f.endsWith(".webm") ||
+              f.endsWith(".mp4") ||
+              f.endsWith(".wav") ||
+              f.endsWith(".ogg")
+          );
+          if (matchedAudio) {
+            audioFileName = matchedAudio;
+            audioFilePath = path.join(targetDir, matchedAudio);
+          }
         }
       }
 
@@ -66,13 +75,28 @@ export async function POST(request: NextRequest) {
         await fs.mkdir(recordingDir, { recursive: true });
 
         const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
         audioFilePath = path.join(recordingDir, audioFileName);
-        await fs.writeFile(audioFilePath, Buffer.from(bytes));
+        await fs.writeFile(audioFilePath, buffer);
+
+        if (process.env.STORAGE_PROVIDER === "r2") {
+          try {
+            await r2RecordingStore.saveAudioFile(
+              folderId,
+              audioFileName,
+              buffer,
+              mimeType
+            );
+          } catch (err) {
+            console.error("Failed to upload audio to R2:", err);
+          }
+        }
       }
     } else {
       // JSON body
       const body = await request.json();
-      const rawFolderId = body.folderId || (body.folderPath ? path.basename(body.folderPath) : null);
+      const rawFolderId =
+        body.folderId || (body.folderPath ? path.basename(body.folderPath) : null);
 
       if (!rawFolderId) {
         return NextResponse.json(
@@ -87,7 +111,14 @@ export async function POST(request: NextRequest) {
 
       try {
         const files = await fs.readdir(targetDir);
-        const matchedAudio = files.find((f) => f.startsWith("audio.") || f.endsWith(".webm") || f.endsWith(".mp4") || f.endsWith(".wav") || f.endsWith(".ogg"));
+        const matchedAudio = files.find(
+          (f) =>
+            f.startsWith("audio.") ||
+            f.endsWith(".webm") ||
+            f.endsWith(".mp4") ||
+            f.endsWith(".wav") ||
+            f.endsWith(".ogg")
+        );
         if (!matchedAudio) {
           return NextResponse.json(
             { error: `No audio file found in recording folder: ${folderId}` },
@@ -111,7 +142,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call OpenAI Audio Transcriptions API without script-forcing prompt for natural transcription
+    // Call OpenAI Audio Transcriptions API without script-forcing prompt
     const audioStream = fsSync.createReadStream(audioFilePath);
     const transcription = await openai.audio.transcriptions.create({
       file: audioStream,
@@ -120,8 +151,14 @@ export async function POST(request: NextRequest) {
 
     const transcriptionText = transcription.text;
     const createdAt = new Date().toISOString();
+    const defaultTitle = `Voice Note - ${new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })}`;
 
     const transcriptionData = {
+      title: defaultTitle,
       text: transcriptionText,
       model,
       createdAt,
@@ -131,10 +168,24 @@ export async function POST(request: NextRequest) {
 
     // Save transcription.json inside the recording subfolder
     const jsonFilePath = path.join(uploadsRoot, folderId, "transcription.json");
-    await fs.writeFile(jsonFilePath, JSON.stringify(transcriptionData, null, 2), "utf-8");
+    await fs.writeFile(
+      jsonFilePath,
+      JSON.stringify(transcriptionData, null, 2),
+      "utf-8"
+    );
+
+    // Save to R2 if configured
+    if (process.env.STORAGE_PROVIDER === "r2") {
+      try {
+        await r2RecordingStore.saveTranscriptionJson(folderId, transcriptionData);
+      } catch (err) {
+        console.error("Failed to save transcription.json to R2:", err);
+      }
+    }
 
     return NextResponse.json({
       success: true,
+      title: defaultTitle,
       text: transcriptionText,
       model,
       createdAt,
@@ -144,7 +195,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Transcription error:", error);
-    const message = error instanceof Error ? error.message : "Failed to transcribe audio.";
+    const message =
+      error instanceof Error ? error.message : "Failed to transcribe audio.";
     return NextResponse.json(
       { error: `Transcription failed: ${message}` },
       { status: 500 }

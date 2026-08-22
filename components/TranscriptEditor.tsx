@@ -6,7 +6,7 @@ import styles from "./TranscriptEditor.module.css";
 
 interface TranscriptEditorProps {
   recording: RecordingDetail;
-  onUpdate: (id: string, newText: string) => Promise<void>;
+  onUpdate: (id: string, newText: string, newTitle?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
@@ -15,40 +15,66 @@ export default function TranscriptEditor({
   onUpdate,
   onDelete,
 }: TranscriptEditorProps) {
+  const [title, setTitle] = useState(recording.title || recording.id);
   const [text, setText] = useState(recording.text);
+  const [isAudioLoaded, setIsAudioLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync state when recording prop changes
+  // Sync state and reset lazy audio state when recording prop changes
   useEffect(() => {
+    setTitle(recording.title || recording.id);
     setText(recording.text);
+    setIsAudioLoaded(false);
     setHasUnsavedChanges(false);
     setShowDeleteModal(false);
-  }, [recording.id, recording.text]);
+  }, [recording.id, recording.title, recording.text]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setText(newText);
-    setHasUnsavedChanges(newText !== recording.text);
+    const unsaved = newText !== recording.text || title !== (recording.title || recording.id);
+    setHasUnsavedChanges(unsaved);
 
-    // Auto-save debounce (2 seconds after typing stops)
+    // Auto-save debounce (2 seconds)
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
-      if (newText !== recording.text) {
-        saveChanges(newText);
-      }
+      saveChanges(newText, title);
     }, 2000);
   };
 
-  const saveChanges = async (textToSave: string = text) => {
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    const unsaved = text !== recording.text || newTitle !== (recording.title || recording.id);
+    setHasUnsavedChanges(unsaved);
+
+    // Auto-save debounce (2 seconds)
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveChanges(text, newTitle);
+    }, 2000);
+  };
+
+  const handleTitleBlur = () => {
+    if (hasUnsavedChanges) {
+      saveChanges(text, title);
+    }
+  };
+
+  const saveChanges = async (
+    textToSave: string = text,
+    titleToSave: string = title
+  ) => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     setIsSaving(true);
     try {
-      await onUpdate(recording.id, textToSave);
+      await onUpdate(recording.id, textToSave, titleToSave);
       setHasUnsavedChanges(false);
     } catch (err) {
       console.error("Failed to save changes:", err);
@@ -59,6 +85,7 @@ export default function TranscriptEditor({
 
   const handleReset = () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    setTitle(recording.title || recording.id);
     setText(recording.text);
     setHasUnsavedChanges(false);
   };
@@ -80,9 +107,9 @@ export default function TranscriptEditor({
     });
 
     const markdownContent = [
-      `# Recording: ${recording.id}`,
+      `# ${title || recording.id}`,
       ``,
-      `- **Created At:** ${formattedDate}`,
+      `- **Date:** ${formattedDate}`,
       `- **Model:** ${recording.model}`,
       `- **Audio File:** \`${recording.audioFile}\``,
       ``,
@@ -100,7 +127,7 @@ export default function TranscriptEditor({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${recording.id}-transcript.md`;
+    link.download = `${(title || recording.id).toLowerCase().replace(/[^a-z0-9_-]/g, "-")}.md`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -133,11 +160,21 @@ export default function TranscriptEditor({
       <div className={styles.topBar}>
         <div className={styles.headerInfo}>
           <div className={styles.titleRow}>
-            <h2 className={styles.title}>{recording.id}</h2>
+            <input
+              type="text"
+              className={styles.titleInput}
+              value={title}
+              onChange={handleTitleChange}
+              onBlur={handleTitleBlur}
+              placeholder="Note title..."
+              aria-label="Note title"
+            />
             <span className={styles.modelBadge}>{recording.model}</span>
           </div>
           <div className={styles.dateSubtitle}>
             <span>🕒 {formattedDate}</span>
+            <span>•</span>
+            <span>ID: <code>{recording.id}</code></span>
             <span>•</span>
             <span>File: <code>{recording.audioFile}</code></span>
           </div>
@@ -172,20 +209,40 @@ export default function TranscriptEditor({
         </div>
       </div>
 
-      {/* Audio Player Section */}
+      {/* Audio Player Section with Lazy Loading */}
       <div className={styles.audioSection}>
         <div className={styles.audioHeader}>
           <span>Audio Playback</span>
-          {recording.size && <span>{(recording.size / 1024).toFixed(1)} KB</span>}
+          {recording.size && (
+            <span>{(recording.size / 1024).toFixed(1)} KB</span>
+          )}
         </div>
-        <audio
-          className={styles.audioPlayer}
-          controls
-          src={recording.audioUrl}
-          preload="metadata"
-        >
-          Your browser does not support the audio element.
-        </audio>
+
+        {!isAudioLoaded ? (
+          <div className={styles.lazyAudioWrapper}>
+            <button
+              type="button"
+              className={styles.lazyAudioBtn}
+              onClick={() => setIsAudioLoaded(true)}
+            >
+              <span>▶</span>
+              <span>Load Audio Player</span>
+            </button>
+            <span className={styles.lazyMetaBadge}>
+              Bandwidth saver: audio stream unmounted
+            </span>
+          </div>
+        ) : (
+          <audio
+            className={styles.audioPlayer}
+            controls
+            autoPlay
+            src={recording.audioUrl}
+            preload="metadata"
+          >
+            Your browser does not support the audio element.
+          </audio>
+        )}
       </div>
 
       {/* Transcript Editor Section */}
@@ -203,7 +260,7 @@ export default function TranscriptEditor({
               </span>
             ) : (
               <span className={`${styles.statusIndicator} ${styles.saved}`}>
-                ✓ Saved to disk
+                ✓ All changes saved
               </span>
             )}
           </div>
@@ -223,7 +280,7 @@ export default function TranscriptEditor({
             <button
               type="button"
               className={`${styles.btn} ${styles.btnPrimary}`}
-              onClick={() => saveChanges(text)}
+              onClick={() => saveChanges(text, title)}
               disabled={isSaving || !hasUnsavedChanges}
             >
               {isSaving ? "Saving..." : "Save Changes"}
@@ -241,7 +298,7 @@ export default function TranscriptEditor({
           </div>
 
           <span className={styles.footerNote}>
-            💾 Synced with <code>public/uploads/{recording.id}/transcription.json</code>
+            💾 Synced with storage (<code>{recording.id}</code>)
           </span>
         </div>
       </div>
@@ -252,8 +309,8 @@ export default function TranscriptEditor({
           <div className={styles.modalContent}>
             <h3 className={styles.modalTitle}>Delete Recording?</h3>
             <p className={styles.modalText}>
-              Are you sure you want to delete <strong>{recording.id}</strong>?
-              This will permanently remove the audio file and transcript from local storage.
+              Are you sure you want to delete <strong>{title || recording.id}</strong>?
+              This will permanently remove the audio file and transcript from storage.
             </p>
             <div className={styles.modalActions}>
               <button

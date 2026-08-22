@@ -28,6 +28,19 @@ export class FsRecordingStore implements RecordingStore {
     }
   }
 
+  private generateDefaultTitle(createdAt: string): string {
+    try {
+      const date = new Date(createdAt);
+      return `Voice Note - ${date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })}`;
+    } catch {
+      return "Voice Note";
+    }
+  }
+
   async getAllRecordings(): Promise<RecordingItem[]> {
     await this.ensureUploadsDir();
 
@@ -45,6 +58,7 @@ export class FsRecordingStore implements RecordingStore {
         const jsonPath = path.join(folderPath, "transcription.json");
 
         let text = "";
+        let title: string | undefined = undefined;
         let model = "gpt-4o-mini-transcribe";
         let createdAt = new Date().toISOString();
         let audioFile = "audio.webm";
@@ -57,6 +71,7 @@ export class FsRecordingStore implements RecordingStore {
             const rawJson = await fs.readFile(jsonPath, "utf-8");
             const data: TranscriptionJsonData = JSON.parse(rawJson);
             text = data.text || "";
+            title = data.title;
             model = data.model || model;
             createdAt = data.createdAt || createdAt;
             audioFile = data.audioFile || audioFile;
@@ -111,6 +126,7 @@ export class FsRecordingStore implements RecordingStore {
 
         items.push({
           id: folderName,
+          title: title || this.generateDefaultTitle(createdAt),
           createdAt,
           textPreview,
           model,
@@ -146,6 +162,7 @@ export class FsRecordingStore implements RecordingStore {
 
     const jsonPath = path.join(folderPath, "transcription.json");
     let text = "";
+    let title: string | undefined = undefined;
     let model = "gpt-4o-mini-transcribe";
     let createdAt = new Date().toISOString();
     let audioFile = "audio.webm";
@@ -156,6 +173,7 @@ export class FsRecordingStore implements RecordingStore {
         const rawJson = await fs.readFile(jsonPath, "utf-8");
         const data: TranscriptionJsonData = JSON.parse(rawJson);
         text = data.text || "";
+        title = data.title;
         model = data.model || model;
         createdAt = data.createdAt || createdAt;
         audioFile = data.audioFile || audioFile;
@@ -200,6 +218,7 @@ export class FsRecordingStore implements RecordingStore {
 
     return {
       id: sanitizedId,
+      title: title || this.generateDefaultTitle(createdAt),
       createdAt,
       text,
       model,
@@ -211,7 +230,18 @@ export class FsRecordingStore implements RecordingStore {
     };
   }
 
-  async updateTranscription(id: string, newText: string): Promise<boolean> {
+  async updateTranscription(
+    id: string,
+    newText: string,
+    newTitle?: string
+  ): Promise<boolean> {
+    return this.updateRecording(id, { text: newText, title: newTitle });
+  }
+
+  async updateRecording(
+    id: string,
+    updates: { text?: string; title?: string }
+  ): Promise<boolean> {
     await this.ensureUploadsDir();
 
     const sanitizedId = this.sanitizeId(id);
@@ -234,7 +264,11 @@ export class FsRecordingStore implements RecordingStore {
     }
 
     const updatedData: TranscriptionJsonData = {
-      text: newText,
+      title:
+        updates.title !== undefined
+          ? updates.title
+          : existingData.title || this.generateDefaultTitle(existingData.createdAt || new Date().toISOString()),
+      text: updates.text !== undefined ? updates.text : existingData.text || "",
       model: existingData.model || "gpt-4o-mini-transcribe",
       createdAt: existingData.createdAt || new Date().toISOString(),
       audioFile: existingData.audioFile || "audio.webm",
@@ -271,4 +305,5 @@ export class FsRecordingStore implements RecordingStore {
   }
 }
 
-export const recordingStore = new FsRecordingStore();
+export const fsRecordingStore = new FsRecordingStore();
+export const recordingStore = fsRecordingStore;

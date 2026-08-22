@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
+import { r2RecordingStore } from "@/lib/recordings/r2-store";
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,11 +46,30 @@ export async function POST(request: NextRequest) {
 
     await fs.writeFile(destinationPath, buffer);
 
+    let audioUrl = `/uploads/${folderId}/${filename}`;
+
+    // If R2 storage is active, upload audio file to Cloudflare R2
+    if (process.env.STORAGE_PROVIDER === "r2") {
+      try {
+        const r2Url = await r2RecordingStore.saveAudioFile(
+          folderId,
+          filename,
+          buffer,
+          mimeType
+        );
+        if (r2Url) {
+          audioUrl = r2Url;
+        }
+      } catch (err) {
+        console.error("Failed to upload audio to R2:", err);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       folderId,
       filename,
-      url: `/uploads/${folderId}/${filename}`,
+      url: audioUrl,
       filepath: destinationPath,
       size: file.size,
       mimeType,

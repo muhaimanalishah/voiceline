@@ -42,16 +42,16 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const body = await request.json();
-    const { text } = body;
+    const { text, title } = body;
 
-    if (typeof text !== "string") {
+    if (text === undefined && title === undefined) {
       return NextResponse.json(
-        { error: "Missing or invalid 'text' field in request body." },
+        { error: "Request body must include 'text' or 'title' to update." },
         { status: 400 }
       );
     }
 
-    const updated = await recordingStore.updateTranscription(id, text);
+    const updated = await recordingStore.updateRecording!(id, { text, title });
 
     if (!updated) {
       return NextResponse.json(
@@ -64,11 +64,12 @@ export async function PATCH(
       success: true,
       id,
       text,
+      title,
     });
   } catch (error) {
     console.error("PATCH /api/recordings/[id] error:", error);
     return NextResponse.json(
-      { error: "Failed to update transcription." },
+      { error: "Failed to update recording." },
       { status: 500 }
     );
   }

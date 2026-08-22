@@ -86,13 +86,13 @@ export default function VoiceLineApp() {
     }
   };
 
-  const handleUpdate = async (id: string, newText: string) => {
+  const handleUpdate = async (id: string, newText: string, newTitle?: string) => {
     const res = await fetch(`/api/recordings/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ text: newText }),
+      body: JSON.stringify({ text: newText, title: newTitle }),
     });
 
     if (!res.ok) {
@@ -103,7 +103,7 @@ export default function VoiceLineApp() {
     // Refresh recordings list previews & selected detail
     fetchRecordings();
     setSelectedRecording((prev) =>
-      prev && prev.id === id ? { ...prev, text: newText } : prev
+      prev && prev.id === id ? { ...prev, text: newText, title: newTitle ?? prev.title } : prev
     );
   };
 
