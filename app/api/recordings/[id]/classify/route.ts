@@ -42,8 +42,8 @@ export async function POST(
       );
     }
 
-    const transcript = note.text?.trim() || note.rawTranscript?.trim();
-    if (!transcript) {
+    const rawOrCurrentTranscript = note.rawTranscript?.trim() || note.text?.trim();
+    if (!rawOrCurrentTranscript) {
       return NextResponse.json(
         { error: "Note has no transcript to classify." },
         { status: 400 }
@@ -66,11 +66,12 @@ export async function POST(
 
     const systemPrompt = hasTags
       ? [
-          "You are a helpful assistant that classifies and summarizes voice notes.",
-          "Analyze the transcript and generate:",
-          "1. A concise, descriptive title between 3 to 6 words maximum.",
-          "2. 2 to 4 concise bullet summary points capturing key takeaways, decisions, or action items.",
-          "3. The id of the single most appropriate tag from the list below. You must return one of these exact ids.",
+          "You are an expert AI assistant that processes, translates, summarizes, and classifies voice notes.",
+          "Analyze the user's voice note transcript and perform the following tasks in order:",
+          "1. Translation & Speech Polish (translatedText): Convert the entire transcript into natural, clear, fluent English. Strictly preserve the exact meaning, conversational flow, nuance, and structural points without fabricating or omitting information. If the transcript is already in English, keep it as English while polishing minor speech/filler artifacts.",
+          "2. Title Generation (title): Generate a concise, descriptive English title between 3 to 6 words maximum.",
+          "3. Bullet Summary (summary): Generate 2 to 4 concise bullet summary points in English capturing key takeaways, decisions, or action items.",
+          "4. Tag Assignment (tagId): Choose the id of the single most appropriate matching tag from the list below. You must return one of these exact ids.",
           "",
           "Available tags:",
           tagListPrompt,
@@ -78,10 +79,11 @@ export async function POST(
           'Guidance on picking a tag: always prefer the most specific tag whose description genuinely matches the content of the note. Only choose the tag named "Others" as a last resort, when the note truly does not fit any of the other tags.',
         ].join("\n")
       : [
-          "You are a helpful assistant that classifies and summarizes voice notes.",
-          "Analyze the transcript and generate:",
-          "1. A concise, descriptive title between 3 to 6 words maximum.",
-          "2. 2 to 4 concise bullet summary points capturing key takeaways, decisions, or action items.",
+          "You are an expert AI assistant that processes, translates, and summarizes voice notes.",
+          "Analyze the user's voice note transcript and perform the following tasks in order:",
+          "1. Translation & Speech Polish (translatedText): Convert the entire transcript into natural, clear, fluent English. Strictly preserve the exact meaning, conversational flow, nuance, and structural points without fabricating or omitting information. If the transcript is already in English, keep it as English while polishing minor speech/filler artifacts.",
+          "2. Title Generation (title): Generate a concise, descriptive English title between 3 to 6 words maximum.",
+          "3. Bullet Summary (summary): Generate 2 to 4 concise bullet summary points in English capturing key takeaways, decisions, or action items.",
         ].join("\n");
 
     const tagIds = availableTags.map((t) => t.id) as [string, ...string[]];
@@ -99,7 +101,7 @@ export async function POST(
         },
         {
           role: "user",
-          content: transcript,
+          content: rawOrCurrentTranscript,
         },
       ],
     });
@@ -116,6 +118,7 @@ export async function POST(
     }
 
     const parsedTitle = parsed.title.trim();
+    const parsedTranslatedText = parsed.translatedText?.trim() || note.text;
     const parsedTagId = "tagId" in parsed ? (parsed.tagId as string) : null;
     const parsedSummary = Array.isArray(parsed.summary) ? parsed.summary : [];
 
@@ -124,8 +127,9 @@ export async function POST(
       matchedTag = availableTags.find((t) => t.id === parsedTagId) || null;
     }
 
-    // Update note title, tagId, summary, and isClassified flag in PostgreSQL
+    // Update note transcript (with translated text), title, tagId, summary, and isClassified flag
     await recordingStore.updateRecording(id, {
+      text: parsedTranslatedText,
       title: parsedTitle,
       tagId: matchedTag?.id ?? null,
       summary: parsedSummary,
@@ -136,6 +140,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       id,
+      text: parsedTranslatedText,
       title: parsedTitle,
       tagId: matchedTag?.id ?? null,
       tag: matchedTag?.name ?? null,

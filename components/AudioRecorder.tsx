@@ -18,7 +18,7 @@ export interface AudioRecorderProps {
 
 const MAX_RECORDING_SECONDS = 600; // 10 minutes limit
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB limit
-const ACCEPTED_EXTENSIONS = [".webm", ".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac"];
+const ACCEPTED_EXTENSIONS = [".webm", ".mp3", ".m4a", ".wav", ".ogg", ".aac", ".acc", ".flac"];
 
 export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps = {}) {
   const [isRecording, setIsRecording] = useState(false);
@@ -350,10 +350,30 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     setError(null);
     isDiscardingRef.current = false;
 
+    // Check if mediaDevices is supported / allowed in current context
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+      if (typeof window !== "undefined" && !window.isSecureContext) {
+        setError(
+          "Microphone access requires a secure connection (HTTPS or localhost). Mobile browsers block microphone on HTTP connections."
+        );
+      } else {
+        setError(
+          "Microphone recording is not supported on this browser or device. Please use audio upload instead."
+        );
+      }
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
@@ -387,7 +407,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
 
       const mimeType = getSupportedMimeType();
       const options: MediaRecorderOptions = {
-        audioBitsPerSecond: 24000,
+        audioBitsPerSecond: 128000, // 128kbps high-fidelity voice encoding
       };
       if (mimeType) {
         options.mimeType = mimeType;
@@ -548,7 +568,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
             </button>
             <div className={styles.idlePrompt}>
               <span className={styles.idleMainText}>or drag & drop audio file anywhere</span>
-              <span className={styles.idleSubText}>24kbps Opus • 10 min limit</span>
+              <span className={styles.idleSubText}>High Quality (128kbps) • 10 min limit</span>
             </div>
           </div>
 
@@ -567,7 +587,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       <input
         type="file"
         ref={fileInputRef}
-        accept="audio/*,.webm,.mp3,.m4a,.wav,.ogg,.aac,.flac"
+        accept="audio/*,.webm,.mp3,.m4a,.wav,.ogg,.aac,.acc,.flac"
         style={{ display: "none" }}
         onChange={handleFileInputChange}
       />

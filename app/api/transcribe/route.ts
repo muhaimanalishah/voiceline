@@ -31,7 +31,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const mimeType = file.type || "audio/webm";
+    let mimeType = file.type || "audio/webm";
+    let filename = file.name || "recording.webm";
+
+    // OpenAI Whisper supported formats: flac, m4a, mp3, mp4, mpeg, mpga, oga, ogg, wav, webm
+    // Map .aac / .acc files to .m4a so OpenAI Whisper decodes the AAC audio stream
+    if (/\.(aac|acc)$/i.test(filename) || mimeType.includes("aac")) {
+      filename = filename.replace(/\.(aac|acc)$/i, "") + ".m4a";
+      if (!filename.endsWith(".m4a")) filename += ".m4a";
+      mimeType = "audio/m4a";
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -42,12 +52,10 @@ export async function POST(request: NextRequest) {
       process.env.OPENAI_TRANSCRIPTION_MODEL ||
       "gpt-4o-mini-transcribe";
 
-
     const uniqueId = crypto.randomUUID().slice(0, 8);
     const timestamp = Date.now();
     const noteId = `note-${timestamp}-${uniqueId}`;
 
-    const filename = file.name || "recording.webm";
     const openaiFile = await toFile(buffer, filename, {
       type: mimeType,
     });
@@ -55,7 +63,6 @@ export async function POST(request: NextRequest) {
     const transcription = await openai.audio.transcriptions.create({
       file: openaiFile,
       model: model,
-      prompt: "The speaker may mix English and Urdu. Preserve Urdu words in Roman Urdu and keep English technical terms in English."
     });
 
     const transcriptionText = transcription.text;

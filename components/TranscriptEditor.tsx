@@ -149,7 +149,9 @@ export default function TranscriptEditor({
       }
 
       const generatedTitle = data.title;
+      const updatedText = data.text || text;
       setTitle(generatedTitle);
+      setText(updatedText);
       setIsClassified(true);
       if (data.tagId !== undefined) {
         setCurrentTagId(data.tagId);
@@ -157,8 +159,9 @@ export default function TranscriptEditor({
       if (Array.isArray(data.summary)) {
         setSummary(data.summary);
       }
-      await onUpdate(recording.id, text, generatedTitle);
-      toast.success("Classified & title updated");
+      setHasUnsavedChanges(false);
+      await onUpdate(recording.id, updatedText, generatedTitle);
+      toast.success("Translated, summarized & classified");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Classification failed";
       console.error("Classification error:", err);
