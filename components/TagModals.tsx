@@ -3,8 +3,17 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { Modal } from "@/components/ui/Modal";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  Modal,
+  ConfirmDialog,
+  Button,
+  FormField,
+  Input,
+  Textarea,
+  TagChip,
+  TagDot,
+  Kbd,
+} from "@/components/ui";
 import { TagWithCount } from "@/lib/recordings/types";
 import {
   TAG_COLORS,
@@ -12,19 +21,24 @@ import {
   PresetTag,
   DEFAULT_TAG_COLOR,
 } from "@/lib/recordings/constants";
+import {
+  useCreateTagMutation,
+  useUpdateTagMutation,
+  useDeleteTagMutation,
+} from "@/lib/hooks/queries/useTags";
 import styles from "./TagModals.module.css";
 
 interface NewTagModalProps {
   onClose: () => void;
-  onCreated: () => void;
 }
 
-export function NewTagModal({ onClose, onCreated }: NewTagModalProps) {
+export function NewTagModal({ onClose }: NewTagModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState<string>(TAG_COLORS[0]);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const createMutation = useCreateTagMutation();
 
   const handleSelectPreset = (preset: PresetTag) => {
     setName(preset.name);
@@ -40,53 +54,42 @@ export function NewTagModal({ onClose, onCreated }: NewTagModalProps) {
       toast.error(msg);
       return;
     }
-    setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/tags", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), description: description.trim(), color }),
+      await createMutation.mutateAsync({
+        name: name.trim(),
+        description: description.trim(),
+        color,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create tag.");
       toast.success(`Tag "${name.trim()}" created successfully!`);
-      onCreated();
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to create tag.";
       setError(msg);
       toast.error(msg);
-    } finally {
-      setIsSaving(false);
     }
   };
 
   return (
     <Modal title="New tag" onClose={onClose}>
-      {error && <div className={styles.errorText}>{error}</div>}
-
-      <div className={styles.field}>
-        <label className={styles.label}>Name</label>
-        <input
-          type="text"
-          className={styles.input}
+      <FormField label="Name" error={error}>
+        <Input
           placeholder="e.g. Health"
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoFocus
         />
-      </div>
-      <div className={styles.field}>
-        <label className={styles.label}>Description</label>
-        <textarea
+      </FormField>
+
+      <FormField label="Description">
+        <Textarea
           rows={2}
-          className={styles.textarea}
           placeholder="Helps the classifier know when to use this tag..."
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-      </div>
+      </FormField>
+
       <div className={styles.field}>
         <label className={styles.label}>Color</label>
         <div className={styles.colorRow}>
@@ -112,31 +115,30 @@ export function NewTagModal({ onClose, onCreated }: NewTagModalProps) {
               color === preset.color;
 
             return (
-              <button
+              <TagChip
                 key={preset.name}
-                type="button"
-                className={`${styles.presetChip} ${isSelected ? styles.presetChipActive : ""}`}
+                name={preset.name}
+                color={preset.color}
+                active={isSelected}
                 onClick={() => handleSelectPreset(preset)}
                 title={`Click to fill: ${preset.description}`}
-              >
-                <span
-                  className={styles.presetChipDot}
-                  style={{ background: preset.color }}
-                />
-                <span>{preset.name}</span>
-              </button>
+              />
             );
           })}
         </div>
       </div>
 
       <div className={styles.actions}>
-        <button type="button" className={styles.btnGhost} onClick={onClose}>
+        <Button variant="ghost" onClick={onClose}>
           Cancel
-        </button>
-        <button type="button" className={styles.btnPrimary} onClick={handleSubmit} disabled={isSaving}>
-          {isSaving ? "Creating..." : "Create tag"}
-        </button>
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleSubmit}
+          isLoading={createMutation.isPending}
+        >
+          Create tag
+        </Button>
       </div>
     </Modal>
   );
@@ -145,14 +147,14 @@ export function NewTagModal({ onClose, onCreated }: NewTagModalProps) {
 interface RenameTagModalProps {
   tag: TagWithCount;
   onClose: () => void;
-  onUpdated: () => void;
 }
 
-export function RenameTagModal({ tag, onClose, onUpdated }: RenameTagModalProps) {
+export function RenameTagModal({ tag, onClose }: RenameTagModalProps) {
   const [name, setName] = useState(tag.name);
   const [description, setDescription] = useState(tag.description);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const updateMutation = useUpdateTagMutation();
 
   const handleSubmit = async () => {
     if (!name.trim() || !description.trim()) {
@@ -161,59 +163,51 @@ export function RenameTagModal({ tag, onClose, onUpdated }: RenameTagModalProps)
       toast.error(msg);
       return;
     }
-    setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/tags/${encodeURIComponent(tag.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), description: description.trim() }),
+      await updateMutation.mutateAsync({
+        id: tag.id,
+        name: name.trim(),
+        description: description.trim(),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update tag.");
       toast.success(`Tag "${name.trim()}" updated successfully!`);
-      onUpdated();
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to update tag.";
       setError(msg);
       toast.error(msg);
-    } finally {
-      setIsSaving(false);
     }
   };
 
   return (
     <Modal title="Rename tag" onClose={onClose}>
-      {error && <div className={styles.errorText}>{error}</div>}
-
-      <div className={styles.field}>
-        <label className={styles.label}>Name</label>
-        <input
-          type="text"
-          className={styles.input}
+      <FormField label="Name" error={error}>
+        <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoFocus
         />
-      </div>
-      <div className={styles.field}>
-        <label className={styles.label}>Description</label>
-        <textarea
+      </FormField>
+
+      <FormField label="Description">
+        <Textarea
           rows={2}
-          className={styles.textarea}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-      </div>
+      </FormField>
 
       <div className={styles.actions}>
-        <button type="button" className={styles.btnGhost} onClick={onClose}>
+        <Button variant="ghost" onClick={onClose}>
           Cancel
-        </button>
-        <button type="button" className={styles.btnPrimary} onClick={handleSubmit} disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save changes"}
-        </button>
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleSubmit}
+          isLoading={updateMutation.isPending}
+        >
+          Save changes
+        </Button>
       </div>
     </Modal>
   );
@@ -222,31 +216,19 @@ export function RenameTagModal({ tag, onClose, onUpdated }: RenameTagModalProps)
 interface DeleteTagModalProps {
   tag: TagWithCount;
   onClose: () => void;
-  onDeleted: () => void;
 }
 
-export function DeleteTagModal({ tag, onClose, onDeleted }: DeleteTagModalProps) {
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function DeleteTagModal({ tag, onClose }: DeleteTagModalProps) {
+  const deleteMutation = useDeleteTagMutation();
 
   const handleDelete = async () => {
-    setIsDeleting(true);
-    setError(null);
     try {
-      const res = await fetch(`/api/tags/${encodeURIComponent(tag.id)}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to delete tag.");
+      await deleteMutation.mutateAsync(tag.id);
       toast.success(`Tag "${tag.name}" deleted.`);
-      onDeleted();
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to delete tag.";
-      setError(msg);
       toast.error(msg);
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -261,8 +243,7 @@ export function DeleteTagModal({ tag, onClose, onDeleted }: DeleteTagModalProps)
       description={warnMessage}
       confirmText="Delete tag"
       variant="danger"
-      isLoading={isDeleting}
-      error={error}
+      isLoading={deleteMutation.isPending}
       onConfirm={handleDelete}
       onCancel={onClose}
     />
@@ -273,10 +254,9 @@ interface ManageTagsModalProps {
   tags: TagWithCount[];
   isLoading?: boolean;
   onClose: () => void;
-  onChanged: () => void;
 }
 
-export function ManageTagsModal({ tags, isLoading = false, onClose, onChanged }: ManageTagsModalProps) {
+export function ManageTagsModal({ tags, isLoading = false, onClose }: ManageTagsModalProps) {
   const [renameTarget, setRenameTarget] = useState<TagWithCount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TagWithCount | null>(null);
   const [showNewTag, setShowNewTag] = useState(false);
@@ -292,31 +272,26 @@ export function ManageTagsModal({ tags, isLoading = false, onClose, onChanged }:
           ) : (
             tags.map((tag) => (
               <div key={tag.id} className={styles.tagListItem}>
-                <span
-                  className={styles.tagListDot}
-                  style={{ background: tag.color || DEFAULT_TAG_COLOR }}
-                />
+                <TagDot color={tag.color || DEFAULT_TAG_COLOR} size="sm" />
                 <div className={styles.tagListMain}>
                   <div className={styles.tagListName}>{tag.name}</div>
                   <div className={styles.tagListDesc}>{tag.description}</div>
                 </div>
                 <div className={styles.tagListActions}>
-                  <button
-                    type="button"
-                    className={styles.tagListIconBtn}
+                  <Button
+                    variant="icon"
+                    size="sm"
                     onClick={() => setRenameTarget(tag)}
                     aria-label={`Rename ${tag.name}`}
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.tagListIconBtn} ${styles.tagListIconBtnDanger}`}
+                    icon={<Pencil size={13} />}
+                  />
+                  <Button
+                    variant="iconDanger"
+                    size="sm"
                     onClick={() => setDeleteTarget(tag)}
                     aria-label={`Delete ${tag.name}`}
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                    icon={<Trash2 size={13} />}
+                  />
                 </div>
               </div>
             ))
@@ -325,25 +300,23 @@ export function ManageTagsModal({ tags, isLoading = false, onClose, onChanged }:
 
         <button type="button" className={styles.newTagBtn} onClick={() => setShowNewTag(true)}>
           <Plus size={14} />
-          New tag
+          <span>New tag</span>
         </button>
       </Modal>
 
       {showNewTag && (
-        <NewTagModal onClose={() => setShowNewTag(false)} onCreated={onChanged} />
+        <NewTagModal onClose={() => setShowNewTag(false)} />
       )}
       {renameTarget && (
         <RenameTagModal
           tag={renameTarget}
           onClose={() => setRenameTarget(null)}
-          onUpdated={onChanged}
         />
       )}
       {deleteTarget && (
         <DeleteTagModal
           tag={deleteTarget}
           onClose={() => setDeleteTarget(null)}
-          onDeleted={onChanged}
         />
       )}
     </>
@@ -366,7 +339,7 @@ export function ShortcutsModal({ onClose }: { onClose: () => void }) {
         {shortcuts.map((s) => (
           <div key={s.key} className={styles.shortcutRow}>
             <span className={styles.shortcutDesc}>{s.desc}</span>
-            <span className={styles.shortcutKey}>{s.key}</span>
+            <Kbd>{s.key}</Kbd>
           </div>
         ))}
       </div>

@@ -1,0 +1,27 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+  color: var(--foreground-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+  font-family: inherit;
+}
+
+.chip:hover {
+  background: var(--hover-bg);
+  border-color: var(--border-hover);
+  color: var(--foreground);
+}
+
+.chipActive {
+  background: var(--hover-bg);
+  border-color: var(--border-focus);
+  color: var(--foreground);
+}

@@ -1,0 +1,112 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-family: inherit;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.12s ease;
+  line-height: 1;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Sizes */
+.sizeSm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+.sizeMd {
+  padding: 0.48rem 0.85rem;
+  font-size: 0.82rem;
+}
+
+.sizeLg {
+  padding: 0.65rem 1.1rem;
+  font-size: 0.9rem;
+}
+
+/* Variants */
+.variantPrimary {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.variantPrimary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.variantGhost {
+  background: transparent;
+  color: var(--foreground-muted);
+  border-color: var(--border);
+}
+
+.variantGhost:hover:not(:disabled) {
+  color: var(--foreground);
+  background: var(--hover-bg);
+  border-color: var(--border-hover);
+}
+
+.variantOutline {
+  background: var(--surface);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.variantOutline:hover:not(:disabled) {
+  background: var(--hover-bg);
+  border-color: var(--border-focus);
+}
+
+.variantDanger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.variantDanger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.variantIcon {
+  background: transparent;
+  color: var(--foreground-muted);
+  border-color: var(--border);
+  padding: 0.45rem;
+}
+
+.variantIcon:hover:not(:disabled) {
+  color: var(--foreground);
+  background: var(--hover-bg);
+  border-color: var(--border-hover);
+}
+
+.variantIconDanger {
+  background: transparent;
+  color: var(--foreground-muted);
+  border-color: var(--border);
+  padding: 0.45rem;
+}
+
+.variantIconDanger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.fullWidth {
+  width: 100%;
+}

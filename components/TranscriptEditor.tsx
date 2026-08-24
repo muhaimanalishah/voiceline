@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   Copy,
   Check,
@@ -8,13 +8,17 @@ import {
   Trash2,
   RotateCcw,
   Sparkles,
-  Loader2,
   CheckCircle2,
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  ConfirmDialog,
+  Button,
+  Badge,
+  Spinner,
+} from "@/components/ui";
 import { RecordingDetail } from "@/lib/recordings/types";
 import { exportNoteAsMarkdown } from "@/lib/utils/export";
 import { formatFullDate } from "@/lib/utils/format";
@@ -237,69 +241,66 @@ export default function TranscriptEditor({
             <div className={styles.metaRow}>
               <span>{formattedDate}</span>
               <span className={styles.metaDot}>•</span>
-              <span className={styles.modelBadge}>{recording.model}</span>
+              <Badge variant="default">{recording.model}</Badge>
               {isClassified && (
                 <>
                   <span className={styles.metaDot}>•</span>
-                  <span className={styles.classifiedBadge}>Classified</span>
+                  <Badge variant="success" dot>
+                    Classified
+                  </Badge>
                 </>
               )}
             </div>
           </div>
 
           <div className={styles.toolbarActions}>
-            <button
-              type="button"
-              className={styles.actionBtn}
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleClassifyClick}
-              disabled={isClassifying}
+              isLoading={isClassifying}
+              icon={<Sparkles size={13} />}
               title="Classify Note (Generate AI Title)"
             >
-              {isClassifying ? (
-                <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} />
-              ) : (
-                <Sparkles size={13} />
-              )}
-              <span>{isClassifying ? "Classifying..." : "Classify"}</span>
-            </button>
+              Classify
+            </Button>
             {hasModifiedRaw ? (
-              <button
-                type="button"
-                className={styles.actionBtn}
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleResetToRaw}
-                disabled={isResetting}
+                isLoading={isResetting}
+                icon={<RotateCcw size={13} />}
                 title="Reset to original OpenAI transcript"
               >
-                <RotateCcw size={13} />
-                <span>Reset</span>
-              </button>
+                Reset
+              </Button>
             ) : null}
-            <button
-              type="button"
-              className={styles.actionBtn}
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleCopy}
+              icon={copied ? <Check size={13} /> : <Copy size={13} />}
               title="Copy text (Alt+C)"
             >
-              {copied ? <Check size={13} /> : <Copy size={13} />}
-              <span>{copied ? "Copied" : "Copy"}</span>
-            </button>
-            <button
-              type="button"
-              className={styles.actionBtn}
+              {copied ? "Copied" : "Copy"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleDownloadMarkdown}
+              icon={<Download size={13} />}
               title="Export Markdown"
             >
-              <Download size={13} />
-              <span>Export</span>
-            </button>
-            <button
-              type="button"
-              className={`${styles.actionBtn} ${styles.dangerBtn}`}
+              Export
+            </Button>
+            <Button
+              variant="iconDanger"
+              size="sm"
               onClick={() => setShowDeleteModal(true)}
               title="Delete note"
-            >
-              <Trash2 size={13} />
-            </button>
+              icon={<Trash2 size={13} />}
+            />
           </div>
         </div>
 
@@ -326,7 +327,7 @@ export default function TranscriptEditor({
         <div className={styles.saveStatus}>
           {isSaving ? (
             <span className={styles.statusSaving}>
-              <Loader2 size={11} style={{ animation: "spin 0.8s linear infinite", display: "inline" }} /> Saving
+              <Spinner size="xs" /> Saving
             </span>
           ) : hasUnsavedChanges ? (
             <span className={styles.statusUnsaved}>● Unsaved edits</span>

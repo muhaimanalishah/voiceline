@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
-  Loader2,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -14,15 +13,29 @@ import {
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Modal } from "@/components/ui/Modal";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  Modal,
+  ConfirmDialog,
+  Button,
+  Badge,
+  TagDot,
+  FormField,
+  Input,
+  Spinner,
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/ui";
 import { RecordingItem } from "@/lib/recordings/types";
 import { DEFAULT_TAG_COLOR } from "@/lib/recordings/constants";
 import { exportNoteAsMarkdown } from "@/lib/utils/export";
 import { formatRelativeDate } from "@/lib/utils/format";
+import {
+  useRecordingsByTagInfiniteQuery,
+  useUpdateRecordingMutation,
+  useDeleteRecordingMutation,
+  useClassifyRecordingMutation,
+} from "@/lib/hooks/queries/useRecordings";
 import styles from "./TagGroup.module.css";
-
-const PAGE_SIZE = 10;
 
 interface TagGroupProps {
   tagId: string | null;
@@ -32,9 +45,7 @@ interface TagGroupProps {
   totalCount: number;
   defaultOpen?: boolean;
   canDelete?: boolean;
-  refreshTrigger?: number;
   searchQuery?: string;
-  onNoteChanged?: () => void;
   onRename?: () => void;
   onDelete?: () => void;
 }
@@ -47,97 +58,40 @@ export default function TagGroup({
   totalCount,
   defaultOpen = false,
   canDelete = true,
-  refreshTrigger,
   searchQuery = "",
-  onNoteChanged,
   onRename,
   onDelete,
 }: TagGroupProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const [recordings, setRecordings] = useState<RecordingItem[]>([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  // Group header menu
-  const [groupMenuOpen, setGroupMenuOpen] = useState(false);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useRecordingsByTagInfiniteQuery(tagId, isOpen);
 
-  // Row item 3-dots menu state
-  const [activeMenuNoteId, setActiveMenuNoteId] = useState<string | null>(null);
+  const recordings = data?.pages.flatMap((page) => page.recordings) || [];
 
-  // Row Action Dialogs
+  const updateMutation = useUpdateRecordingMutation();
+  const deleteMutation = useDeleteRecordingMutation();
+  const classifyMutation = useClassifyRecordingMutation();
+
+  // Dialog states
   const [renameNoteTarget, setRenameNoteTarget] = useState<RecordingItem | null>(null);
   const [renameNoteTitle, setRenameNoteTitle] = useState("");
-  const [isRenaming, setIsRenaming] = useState(false);
-
   const [deleteNoteTarget, setDeleteNoteTarget] = useState<RecordingItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
   const [classifyWarningTarget, setClassifyWarningTarget] = useState<RecordingItem | null>(null);
-  const [isClassifyingId, setIsClassifyingId] = useState<string | null>(null);
-
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const isUnclassified = tagId === null;
 
-  const loadPage = useCallback(
-    async (nextPage: number, reset: boolean = false) => {
-      setIsLoading(true);
-      try {
-        const tagParam = isUnclassified ? "unclassified" : tagId;
-        const res = await fetch(
-          `/api/recordings?tagId=${encodeURIComponent(tagParam as string)}&page=${nextPage}&limit=${PAGE_SIZE}`
-        );
-        const data = await res.json();
-        if (res.ok && data.recordings) {
-          setRecordings((prev) =>
-            reset || nextPage === 1 ? data.recordings : [...prev, ...data.recordings]
-          );
-          setHasMore(Boolean(data.hasMore));
-          setPage(data.page || nextPage);
-        }
-      } catch (err) {
-        console.error("Failed to load recordings for group:", err);
-      } finally {
-        setIsLoading(false);
-        setHasLoadedOnce(true);
-      }
-    },
-    [isUnclassified, tagId]
-  );
-
   const handleToggle = () => {
-    const opening = !isOpen;
-    setIsOpen(opening);
-    if (opening && !hasLoadedOnce) {
-      loadPage(1, true);
-    }
+    setIsOpen((prev) => !prev);
   };
 
-  const handleLoadMore = () => {
-    if (!isLoading && hasMore) {
-      loadPage(page + 1);
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      loadPage(1, true);
-    }
-  }, [refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!groupMenuOpen && !activeMenuNoteId) return;
-    const close = () => {
-      setGroupMenuOpen(false);
-      setActiveMenuNoteId(null);
-    };
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [groupMenuOpen, activeMenuNoteId]);
-
-  // Row Action Handlers
+  // Copy Note handler
   const handleCopyNote = async (rec: RecordingItem) => {
     try {
       const res = await fetch(`/api/recordings/${encodeURIComponent(rec.id)}`);
@@ -153,6 +107,7 @@ export default function TagGroup({
     }
   };
 
+  // Export Note handler
   const handleExportNote = async (rec: RecordingItem) => {
     try {
       const res = await fetch(`/api/recordings/${encodeURIComponent(rec.id)}`);
@@ -173,82 +128,44 @@ export default function TagGroup({
     }
   };
 
+  // Rename Note Submit
   const handleRenameNoteSubmit = async () => {
     if (!renameNoteTarget || !renameNoteTitle.trim()) return;
-    setIsRenaming(true);
     try {
-      const res = await fetch(`/api/recordings/${encodeURIComponent(renameNoteTarget.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: renameNoteTitle.trim() }),
+      await updateMutation.mutateAsync({
+        id: renameNoteTarget.id,
+        title: renameNoteTitle.trim(),
       });
-      if (res.ok) {
-        setRenameNoteTarget(null);
-        setRecordings((prev) =>
-          prev.map((r) =>
-            r.id === renameNoteTarget.id ? { ...r, title: renameNoteTitle.trim() } : r
-          )
-        );
-        toast.success("Note renamed.");
-        onNoteChanged?.();
-      } else {
-        toast.error("Failed to rename note.");
-      }
+      setRenameNoteTarget(null);
+      toast.success("Note renamed.");
     } catch (err) {
-      console.error("Failed to rename note:", err);
-      toast.error("Failed to rename note.");
-    } finally {
-      setIsRenaming(false);
+      const msg = err instanceof Error ? err.message : "Failed to rename note.";
+      toast.error(msg);
     }
   };
 
+  // Delete Note Submit
   const handleDeleteNoteSubmit = async () => {
     if (!deleteNoteTarget) return;
-    setIsDeleting(true);
     try {
-      const res = await fetch(`/api/recordings/${encodeURIComponent(deleteNoteTarget.id)}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        setDeleteNoteTarget(null);
-        setRecordings((prev) => prev.filter((r) => r.id !== deleteNoteTarget.id));
-        toast.success("Note deleted.");
-        onNoteChanged?.();
-      } else {
-        toast.error("Failed to delete note.");
-      }
+      await deleteMutation.mutateAsync(deleteNoteTarget.id);
+      setDeleteNoteTarget(null);
+      toast.success("Note deleted.");
     } catch (err) {
-      console.error("Failed to delete note:", err);
-      toast.error("Failed to delete note.");
-    } finally {
-      setIsDeleting(false);
+      const msg = err instanceof Error ? err.message : "Failed to delete note.";
+      toast.error(msg);
     }
   };
 
+  // Classify Note Submit
   const runRowClassification = async (rec: RecordingItem) => {
-    setIsClassifyingId(rec.id);
     setClassifyWarningTarget(null);
     try {
-      const res = await fetch(`/api/recordings/${encodeURIComponent(rec.id)}/classify`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (res.ok && data.title) {
-        setRecordings((prev) =>
-          prev.map((r) =>
-            r.id === rec.id ? { ...r, title: data.title, isClassified: true } : r
-          )
-        );
-        toast.success("Note classified.");
-        onNoteChanged?.();
-      } else {
-        toast.error(data.error || "Failed to classify note.");
-      }
+      await classifyMutation.mutateAsync(rec.id);
+      toast.success("Note classified.");
     } catch (err) {
-      console.error("Failed to classify note:", err);
-      toast.error("Failed to classify note.");
-    } finally {
-      setIsClassifyingId(null);
+      const msg = err instanceof Error ? err.message : "Failed to classify note.";
+      toast.error(msg);
     }
   };
 
@@ -277,14 +194,7 @@ export default function TagGroup({
             size={14}
             className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}
           />
-          <span
-            className={styles.dot}
-            style={{
-              background: isUnclassified
-                ? DEFAULT_TAG_COLOR
-                : color || DEFAULT_TAG_COLOR,
-            }}
-          />
+          <TagDot color={isUnclassified ? DEFAULT_TAG_COLOR : color} size="sm" />
           <span
             className={`${styles.groupName} ${
               isUnclassified ? styles.groupNameUnclassified : ""
@@ -296,75 +206,54 @@ export default function TagGroup({
         </button>
 
         <div className={styles.headerRight}>
-          <span className={styles.countBadge}>
+          <Badge variant="muted">
             {totalCount} {totalCount === 1 ? "note" : "notes"}
-          </span>
+          </Badge>
+
           {!isUnclassified && (
-            <div className={styles.menuWrap}>
-              <button
-                type="button"
-                className={styles.menuBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setGroupMenuOpen((v) => !v);
-                }}
-                aria-label="Tag actions"
-              >
-                <MoreHorizontal size={14} />
-              </button>
-              {groupMenuOpen && (
-                <div className={styles.menuDropdown} onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className={styles.menuItem}
-                    onClick={() => {
-                      setGroupMenuOpen(false);
-                      onRename?.();
-                    }}
-                  >
-                    <Pencil size={12} />
-                    Rename
-                  </button>
-                  {canDelete ? (
-                    <button
-                      type="button"
-                      className={`${styles.menuItem} ${styles.menuItemDanger}`}
-                      onClick={() => {
-                        setGroupMenuOpen(false);
-                        onDelete?.();
-                      }}
-                    >
-                      <Trash2 size={12} />
-                      Delete
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled
-                      title="This tag is protected and cannot be deleted"
-                      className={`${styles.menuItem} ${styles.menuItemDisabled}`}
-                    >
-                      <Trash2 size={12} />
-                      Delete
-                    </button>
-                  )}
-                </div>
+            <DropdownMenu
+              trigger={
+                <button type="button" className={styles.menuBtn} aria-label="Tag actions">
+                  <MoreHorizontal size={14} />
+                </button>
+              }
+            >
+              <DropdownMenuItem icon={<Pencil size={12} />} onClick={onRename}>
+                Rename
+              </DropdownMenuItem>
+              {canDelete ? (
+                <DropdownMenuItem
+                  icon={<Trash2 size={12} />}
+                  variant="danger"
+                  onClick={onDelete}
+                >
+                  Delete
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  icon={<Trash2 size={12} />}
+                  disabled
+                  title="This tag is protected and cannot be deleted"
+                >
+                  Delete
+                </DropdownMenuItem>
               )}
-            </div>
+            </DropdownMenu>
           )}
         </div>
       </div>
 
       {isOpen && (
         <div className={styles.rows}>
-          {displayedRecordings.length === 0 && hasLoadedOnce && !isLoading ? (
+          {displayedRecordings.length === 0 && !isLoading ? (
             <div className={styles.emptyRow}>
               {query ? "No matching notes found" : "No notes yet in this tag"}
             </div>
           ) : (
             displayedRecordings.map((rec) => {
-              const isMenuOpen = activeMenuNoteId === rec.id;
-              const isClassifying = isClassifyingId === rec.id;
+              const isClassifying =
+                classifyMutation.isPending &&
+                classifyMutation.variables === rec.id;
               const isCopied = copiedId === rec.id;
 
               return (
@@ -387,87 +276,63 @@ export default function TagGroup({
 
                   {/* 3-Dots Action Menu on each note row */}
                   <div className={styles.rowActionsWrap}>
-                    <button
-                      type="button"
-                      className={styles.rowMenuBtn}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenuNoteId(isMenuOpen ? null : rec.id);
-                      }}
-                      aria-label="Note actions"
-                    >
-                      <MoreHorizontal size={14} />
-                    </button>
-
-                    {isMenuOpen && (
-                      <div className={styles.rowDropdown} onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu
+                      trigger={
                         <button
                           type="button"
-                          className={styles.menuItem}
-                          onClick={() => {
-                            setActiveMenuNoteId(null);
-                            handleClassifyNoteClick(rec);
-                          }}
-                          disabled={isClassifying}
+                          className={styles.rowMenuBtn}
+                          aria-label="Note actions"
                         >
-                          {isClassifying ? (
-                            <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} />
+                          <MoreHorizontal size={14} />
+                        </button>
+                      }
+                    >
+                      <DropdownMenuItem
+                        icon={
+                          isClassifying ? (
+                            <Spinner size="xs" />
                           ) : (
                             <Sparkles size={12} />
-                          )}
-                          <span>{isClassifying ? "Classifying..." : "Classify"}</span>
-                        </button>
+                          )
+                        }
+                        disabled={isClassifying}
+                        onClick={() => handleClassifyNoteClick(rec)}
+                      >
+                        {isClassifying ? "Classifying..." : "Classify"}
+                      </DropdownMenuItem>
 
-                        <button
-                          type="button"
-                          className={styles.menuItem}
-                          onClick={() => {
-                            setActiveMenuNoteId(null);
-                            setRenameNoteTitle(rec.title || "");
-                            setRenameNoteTarget(rec);
-                          }}
-                        >
-                          <Pencil size={12} />
-                          <span>Rename</span>
-                        </button>
+                      <DropdownMenuItem
+                        icon={<Pencil size={12} />}
+                        onClick={() => {
+                          setRenameNoteTitle(rec.title || "");
+                          setRenameNoteTarget(rec);
+                        }}
+                      >
+                        Rename
+                      </DropdownMenuItem>
 
-                        <button
-                          type="button"
-                          className={styles.menuItem}
-                          onClick={() => {
-                            setActiveMenuNoteId(null);
-                            handleCopyNote(rec);
-                          }}
-                        >
-                          {isCopied ? <Check size={12} /> : <Copy size={12} />}
-                          <span>{isCopied ? "Copied" : "Copy"}</span>
-                        </button>
+                      <DropdownMenuItem
+                        icon={isCopied ? <Check size={12} /> : <Copy size={12} />}
+                        onClick={() => handleCopyNote(rec)}
+                      >
+                        {isCopied ? "Copied" : "Copy"}
+                      </DropdownMenuItem>
 
-                        <button
-                          type="button"
-                          className={styles.menuItem}
-                          onClick={() => {
-                            setActiveMenuNoteId(null);
-                            handleExportNote(rec);
-                          }}
-                        >
-                          <Download size={12} />
-                          <span>Export</span>
-                        </button>
+                      <DropdownMenuItem
+                        icon={<Download size={12} />}
+                        onClick={() => handleExportNote(rec)}
+                      >
+                        Export
+                      </DropdownMenuItem>
 
-                        <button
-                          type="button"
-                          className={`${styles.menuItem} ${styles.menuItemDanger}`}
-                          onClick={() => {
-                            setActiveMenuNoteId(null);
-                            setDeleteNoteTarget(rec);
-                          }}
-                        >
-                          <Trash2 size={12} />
-                          <span>Delete</span>
-                        </button>
-                      </div>
-                    )}
+                      <DropdownMenuItem
+                        icon={<Trash2 size={12} />}
+                        variant="danger"
+                        onClick={() => setDeleteNoteTarget(rec)}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenu>
                   </div>
                 </div>
               );
@@ -476,23 +341,23 @@ export default function TagGroup({
 
           {isLoading && recordings.length === 0 && (
             <div className={styles.emptyRow}>
-              <Loader2 size={14} style={{ animation: "spin 0.8s linear infinite" }} />
+              <Spinner size="sm" />
             </div>
           )}
 
-          {hasMore && !query && (
+          {hasNextPage && !query && (
             <button
               type="button"
               className={styles.loadMoreBtn}
-              onClick={handleLoadMore}
-              disabled={isLoading}
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
             >
-              {isLoading ? (
-                <Loader2 size={12} style={{ animation: "spin 0.8s linear infinite" }} />
+              {isFetchingNextPage ? (
+                <Spinner size="xs" />
               ) : (
                 <ChevronDown size={12} />
               )}
-              Load more
+              <span>Load more</span>
             </button>
           )}
         </div>
@@ -501,33 +366,26 @@ export default function TagGroup({
       {/* Rename Note Modal */}
       {renameNoteTarget && (
         <Modal title="Rename Note" onClose={() => setRenameNoteTarget(null)}>
-          <div className={styles.field}>
-            <label className={styles.label}>Title</label>
-            <input
-              type="text"
-              className={styles.input}
+          <FormField label="Title">
+            <Input
               value={renameNoteTitle}
               onChange={(e) => setRenameNoteTitle(e.target.value)}
               placeholder="Note title..."
               autoFocus
             />
-          </div>
+          </FormField>
           <div className={styles.modalActions}>
-            <button
-              type="button"
-              className={styles.actionBtn}
-              onClick={() => setRenameNoteTarget(null)}
-            >
+            <Button variant="ghost" onClick={() => setRenameNoteTarget(null)}>
               Cancel
-            </button>
-            <button
-              type="button"
-              className={`${styles.actionBtn} ${styles.primaryBtn}`}
+            </Button>
+            <Button
+              variant="primary"
               onClick={handleRenameNoteSubmit}
-              disabled={isRenaming || !renameNoteTitle.trim()}
+              isLoading={updateMutation.isPending}
+              disabled={!renameNoteTitle.trim()}
             >
-              {isRenaming ? "Saving..." : "Save"}
-            </button>
+              Save
+            </Button>
           </div>
         </Modal>
       )}
@@ -543,7 +401,7 @@ export default function TagGroup({
           }
           confirmText="Delete"
           variant="danger"
-          isLoading={isDeleting}
+          isLoading={deleteMutation.isPending}
           onConfirm={handleDeleteNoteSubmit}
           onCancel={() => setDeleteNoteTarget(null)}
         />

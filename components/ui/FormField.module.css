@@ -1,0 +1,42 @@
+.field {
+  margin-bottom: 0.85rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--foreground-muted);
+  margin-bottom: 0.35rem;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--foreground);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: var(--border-focus);
+}
+
+.textarea {
+  resize: none;
+}
+
+.error {
+  font-size: 0.75rem;
+  color: #f87171;
+  margin-top: 0.35rem;
+}

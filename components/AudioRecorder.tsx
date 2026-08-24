@@ -6,10 +6,10 @@ import {
   Square,
   UploadCloud,
   AlertCircle,
-  Loader2,
   Trash2,
   FolderOpen,
 } from "lucide-react";
+import { Spinner } from "@/components/ui";
 import styles from "./AudioRecorder.module.css";
 
 export interface AudioRecorderProps {
@@ -492,7 +492,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
         </div>
       ) : isTranscribing ? (
         <div className={styles.transcribingBar}>
-          <Loader2 className={styles.spinner} size={18} />
+          <Spinner size="md" />
           <span>Transcribing audio with OpenAI...</span>
         </div>
       ) : isRecording ? (
