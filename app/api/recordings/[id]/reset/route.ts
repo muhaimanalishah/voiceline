@@ -28,7 +28,7 @@ export async function POST(
       );
     }
 
-    const success = await recordingStore.resetToRawTranscript?.(id);
+    const success = await recordingStore.resetToRawTranscript(id);
     if (!success) {
       return NextResponse.json(
         { error: "Failed to reset transcript to raw text." },

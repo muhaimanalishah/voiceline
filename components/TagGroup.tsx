@@ -16,6 +16,7 @@ interface TagGroupProps {
   totalCount: number;
   defaultOpen?: boolean;
   canDelete?: boolean;
+  refreshTrigger?: number;
   onRename?: () => void;
   onDelete?: () => void;
 }
@@ -43,6 +44,7 @@ export default function TagGroup({
   totalCount,
   defaultOpen = false,
   canDelete = true,
+  refreshTrigger,
   onRename,
   onDelete,
 }: TagGroupProps) {
@@ -56,16 +58,16 @@ export default function TagGroup({
 
   const isUnclassified = tagId === null;
 
-  const loadPage = async (nextPage: number) => {
+  const loadPage = React.useCallback(async (nextPage: number, reset: boolean = false) => {
     setIsLoading(true);
     try {
       const tagParam = isUnclassified ? "unclassified" : tagId;
       const res = await fetch(
-        `/api/recordings?tagId=${encodeURIComponent(tagParam)}&page=${nextPage}&limit=${PAGE_SIZE}`
+        `/api/recordings?tagId=${encodeURIComponent(tagParam as string)}&page=${nextPage}&limit=${PAGE_SIZE}`
       );
       const data = await res.json();
       if (res.ok && data.recordings) {
-        setRecordings((prev) => (nextPage === 1 ? data.recordings : [...prev, ...data.recordings]));
+        setRecordings((prev) => (reset || nextPage === 1 ? data.recordings : [...prev, ...data.recordings]));
         setHasMore(Boolean(data.hasMore));
         setPage(data.page || nextPage);
       }
@@ -75,13 +77,13 @@ export default function TagGroup({
       setIsLoading(false);
       setHasLoadedOnce(true);
     }
-  };
+  }, [isUnclassified, tagId]);
 
   const handleToggle = () => {
     const opening = !isOpen;
     setIsOpen(opening);
     if (opening && !hasLoadedOnce) {
-      loadPage(1);
+      loadPage(1, true);
     }
   };
 
@@ -92,36 +94,10 @@ export default function TagGroup({
   };
 
   React.useEffect(() => {
-    if (!defaultOpen) return;
-    let ignore = false;
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const tagParam = isUnclassified ? "unclassified" : tagId;
-        const res = await fetch(
-          `/api/recordings?tagId=${encodeURIComponent(tagParam as string)}&page=1&limit=${PAGE_SIZE}`
-        );
-        const data = await res.json();
-        if (!ignore && res.ok && data.recordings) {
-          setRecordings(data.recordings);
-          setHasMore(Boolean(data.hasMore));
-          setPage(data.page || 1);
-        }
-      } catch (err) {
-        console.error("Failed to load recordings for group:", err);
-      } finally {
-        if (!ignore) {
-          setIsLoading(false);
-          setHasLoadedOnce(true);
-        }
-      }
-    };
-    load();
-    return () => {
-      ignore = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (isOpen) {
+      loadPage(1, true);
+    }
+  }, [refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (!menuOpen) return;

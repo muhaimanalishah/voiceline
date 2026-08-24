@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { recordingStore, validateDatabaseEnv } from "@/lib/recordings";
+import { recordingStore } from "@/lib/recordings";
 
 interface RouteContext {
   params: Promise<{
@@ -17,19 +17,6 @@ export async function POST(
     if (!apiKey) {
       return NextResponse.json(
         { error: "OPENAI_API_KEY is not configured on the server." },
-        { status: 500 }
-      );
-    }
-
-    const validation = validateDatabaseEnv();
-    if (!validation.valid) {
-      return NextResponse.json(
-        {
-          error: `Database is not configured. Missing environment variables: ${validation.missing.join(
-            ", "
-          )}.`,
-          missing: validation.missing,
-        },
         { status: 500 }
       );
     }
@@ -61,7 +48,7 @@ export async function POST(
     // Retrieve available tags from the database. If none exist, tagging is
     // skipped entirely and the note is left unclassified (tagId: null) —
     // this is a distinct state from being deliberately tagged "Others".
-    const availableTags = (await recordingStore.getAllTags?.()) || [];
+    const availableTags = (await recordingStore.getAllTags()) || [];
     const hasTags = availableTags.length > 0;
 
     const openai = new OpenAI({ apiKey });
@@ -172,7 +159,7 @@ export async function POST(
     }
 
     // Update note title and tagId (null when unclassified) in PostgreSQL
-    await recordingStore.updateRecording!(id, {
+    await recordingStore.updateRecording(id, {
       title: parsedTitle,
       tagId: matchedTag?.id ?? null,
     });

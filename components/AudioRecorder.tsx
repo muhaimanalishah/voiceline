@@ -21,7 +21,6 @@ const ACCEPTED_EXTENSIONS = [".webm", ".mp3", ".m4a", ".wav", ".ogg", ".aac", ".
 
 export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps = {}) {
   const [isRecording, setIsRecording] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -120,37 +119,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     });
   };
 
-  const transcribeAudio = async (folderId: string) => {
-    setIsTranscribing(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/transcribe", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ folderId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to transcribe audio.");
-      }
-
-      if (onRecordingCreated) {
-        onRecordingCreated(folderId);
-      }
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Transcription failed.";
-      setError(message);
-    } finally {
-      setIsTranscribing(false);
-    }
-  };
-
   const processAudioUpload = async (file: File) => {
     // 1. File Size Validation
     if (file.size > MAX_FILE_SIZE) {
@@ -178,14 +146,14 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       return;
     }
 
-    setIsUploading(true);
+    setIsTranscribing(true);
     setError(null);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/upload-audio", {
+      const response = await fetch("/api/transcribe", {
         method: "POST",
         body: formData,
       });
@@ -193,17 +161,17 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to upload audio file.");
+        throw new Error(data.error || "Failed to transcribe audio.");
       }
 
-      if (data.folderId) {
-        await transcribeAudio(data.folderId);
+      if (data.id && onRecordingCreated) {
+        onRecordingCreated(data.id);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to upload audio.";
+      const message = err instanceof Error ? err.message : "Failed to process audio.";
       setError(message);
     } finally {
-      setIsUploading(false);
+      setIsTranscribing(false);
     }
   };
 
@@ -359,11 +327,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
             </div>
             <span className={styles.limitNote}>Max 10 minutes</span>
           </>
-        ) : isUploading ? (
-          <div className={styles.loadingContainer}>
-            <Loader2 className={styles.spinner} size={20} />
-            <span>Uploading audio...</span>
-          </div>
         ) : isTranscribing ? (
           <div className={styles.loadingContainer}>
             <Loader2 className={styles.spinner} size={20} />
@@ -390,7 +353,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
             type="button"
             className={styles.recordBtn}
             onClick={startRecording}
-            disabled={isUploading || isTranscribing}
+            disabled={isTranscribing}
           >
             <Mic size={18} />
             <span>Start Recording</span>
@@ -407,7 +370,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
         )}
       </div>
 
-      {!isRecording && !isUploading && !isTranscribing && (
+      {!isRecording && !isTranscribing && (
         <>
           <div className={styles.divider}>
             <span>Or Upload File</span>

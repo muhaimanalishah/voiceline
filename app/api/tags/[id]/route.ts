@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { recordingStore, validateDatabaseEnv } from "@/lib/recordings";
+import { recordingStore } from "@/lib/recordings";
 
 interface RouteContext {
   params: Promise<{
@@ -12,21 +12,8 @@ export async function GET(
   context: RouteContext
 ) {
   try {
-    const validation = validateDatabaseEnv();
-    if (!validation.valid) {
-      return NextResponse.json(
-        {
-          error: `Database is not configured. Missing environment variables: ${validation.missing.join(
-            ", "
-          )}.`,
-          missing: validation.missing,
-        },
-        { status: 500 }
-      );
-    }
-
     const { id } = await context.params;
-    const tag = await recordingStore.getTagById!(id);
+    const tag = await recordingStore.getTagById(id);
 
     if (!tag) {
       return NextResponse.json(
@@ -53,19 +40,6 @@ export async function PATCH(
   context: RouteContext
 ) {
   try {
-    const validation = validateDatabaseEnv();
-    if (!validation.valid) {
-      return NextResponse.json(
-        {
-          error: `Database is not configured. Missing environment variables: ${validation.missing.join(
-            ", "
-          )}.`,
-          missing: validation.missing,
-        },
-        { status: 500 }
-      );
-    }
-
     const { id } = await context.params;
     const body = await request.json();
     const { name, description, color } = body;
@@ -77,7 +51,7 @@ export async function PATCH(
       );
     }
 
-    const updatedTag = await recordingStore.updateTag!(id, {
+    const updatedTag = await recordingStore.updateTag(id, {
       name: typeof name === "string" ? name.trim() : undefined,
       description: typeof description === "string" ? description.trim() : undefined,
       color: typeof color === "string" || color === null ? color : undefined,
@@ -108,21 +82,8 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
-    const validation = validateDatabaseEnv();
-    if (!validation.valid) {
-      return NextResponse.json(
-        {
-          error: `Database is not configured. Missing environment variables: ${validation.missing.join(
-            ", "
-          )}.`,
-          missing: validation.missing,
-        },
-        { status: 500 }
-      );
-    }
-
     const { id } = await context.params;
-    const deleted = await recordingStore.deleteTag!(id);
+    const deleted = await recordingStore.deleteTag(id);
 
     if (!deleted) {
       return NextResponse.json(

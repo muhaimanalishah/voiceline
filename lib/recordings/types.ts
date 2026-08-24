@@ -73,26 +73,25 @@ export interface NewRecordingInput {
 
 export interface RecordingStore {
   getAllRecordings(options?: PaginationOptions): Promise<PaginatedRecordings>;
-  getRecordingsByTag?(
+  getRecordingsByTag(
     tagId: string | null,
     options?: PaginationOptions
   ): Promise<PaginatedRecordings>;
   getRecordingById(id: string): Promise<RecordingDetail | null>;
-  updateTranscription(id: string, newText: string, newTitle?: string): Promise<boolean>;
-  updateRecording?(
+  updateRecording(
     id: string,
     updates: { text?: string; title?: string; tagId?: string | null }
   ): Promise<boolean>;
-  resetToRawTranscript?(id: string): Promise<boolean>;
-  saveRecording?(data: NewRecordingInput): Promise<boolean>;
+  resetToRawTranscript(id: string): Promise<boolean>;
+  saveRecording(data: NewRecordingInput): Promise<boolean>;
   deleteRecording(id: string): Promise<boolean>;
-  getAllTags?(): Promise<TagItem[]>;
-  getAllTagsWithCounts?(): Promise<TagWithCount[]>;
-  getUnclassifiedCount?(): Promise<number>;
-  getTagById?(id: string): Promise<TagItem | null>;
-  createTag?(data: NewTagInput): Promise<TagItem>;
-  updateTag?(id: string, updates: UpdateTagInput): Promise<TagItem | null>;
-  deleteTag?(id: string): Promise<boolean>;
+  getAllTags(): Promise<TagItem[]>;
+  getAllTagsWithCounts(): Promise<TagWithCount[]>;
+  getUnclassifiedCount(): Promise<number>;
+  getTagById(id: string): Promise<TagItem | null>;
+  createTag(data: NewTagInput): Promise<TagItem>;
+  updateTag(id: string, updates: UpdateTagInput): Promise<TagItem | null>;
+  deleteTag(id: string): Promise<boolean>;
 }
 
 

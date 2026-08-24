@@ -44,15 +44,5 @@ export function validateDatabaseEnv(): EnvValidationResult {
   };
 }
 
-export function assertValidEnv(): void {
-  const validation = validateDatabaseEnv();
-  if (!validation.valid) {
-    throw new Error(
-      `Database backend configuration missing: ${validation.missing.join(", ")}.`
-    );
-  }
-}
-
 export const recordingStore: RecordingStore = drizzleRecordingStore;
-export const getRecordingStore = (): RecordingStore => drizzleRecordingStore;
 

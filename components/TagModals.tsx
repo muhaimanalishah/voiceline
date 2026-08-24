@@ -245,54 +245,16 @@ export function DeleteTagModal({ tag, onClose, onDeleted }: DeleteTagModalProps)
 }
 
 interface ManageTagsModalProps {
+  tags: TagWithCount[];
+  isLoading?: boolean;
   onClose: () => void;
   onChanged: () => void;
 }
 
-export function ManageTagsModal({ onClose, onChanged }: ManageTagsModalProps) {
-  const [tags, setTags] = useState<TagWithCount[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function ManageTagsModal({ tags, isLoading = false, onClose, onChanged }: ManageTagsModalProps) {
   const [renameTarget, setRenameTarget] = useState<TagWithCount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TagWithCount | null>(null);
   const [showNewTag, setShowNewTag] = useState(false);
-
-  const loadTags = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/tags");
-      const data = await res.json();
-      if (res.ok) setTags(data.tags || []);
-    } catch (err) {
-      console.error("Failed to load tags:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let ignore = false;
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const res = await fetch("/api/tags");
-        const data = await res.json();
-        if (!ignore && res.ok) setTags(data.tags || []);
-      } catch (err) {
-        console.error("Failed to load tags:", err);
-      } finally {
-        if (!ignore) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  const handleChanged = () => {
-    loadTags();
-    onChanged();
-  };
 
   return (
     <>
@@ -349,20 +311,20 @@ export function ManageTagsModal({ onClose, onChanged }: ManageTagsModalProps) {
       </div>
 
       {showNewTag && (
-        <NewTagModal onClose={() => setShowNewTag(false)} onCreated={handleChanged} />
+        <NewTagModal onClose={() => setShowNewTag(false)} onCreated={onChanged} />
       )}
       {renameTarget && (
         <RenameTagModal
           tag={renameTarget}
           onClose={() => setRenameTarget(null)}
-          onUpdated={handleChanged}
+          onUpdated={onChanged}
         />
       )}
       {deleteTarget && (
         <DeleteTagModal
           tag={deleteTarget}
           onClose={() => setDeleteTarget(null)}
-          onDeleted={handleChanged}
+          onDeleted={onChanged}
         />
       )}
     </>

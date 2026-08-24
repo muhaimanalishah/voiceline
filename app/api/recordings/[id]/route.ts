@@ -51,7 +51,7 @@ export async function PATCH(
       );
     }
 
-    const updated = await recordingStore.updateRecording!(id, { text, title });
+    const updated = await recordingStore.updateRecording(id, { text, title });
 
     if (!updated) {
       return NextResponse.json(

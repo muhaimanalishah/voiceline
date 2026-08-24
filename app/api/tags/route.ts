@@ -1,23 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { recordingStore, validateDatabaseEnv } from "@/lib/recordings";
+import { recordingStore } from "@/lib/recordings";
 
 export async function GET() {
   try {
-    const validation = validateDatabaseEnv();
-    if (!validation.valid) {
-      return NextResponse.json(
-        {
-          error: `Database is not configured. Missing environment variables: ${validation.missing.join(
-            ", "
-          )}.`,
-          missing: validation.missing,
-        },
-        { status: 500 }
-      );
-    }
-
-    const tags = await recordingStore.getAllTagsWithCounts!();
-    const unclassifiedCount = await recordingStore.getUnclassifiedCount!();
+    const tags = await recordingStore.getAllTagsWithCounts();
+    const unclassifiedCount = await recordingStore.getUnclassifiedCount();
     return NextResponse.json({
       success: true,
       tags,
@@ -34,19 +21,6 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const validation = validateDatabaseEnv();
-    if (!validation.valid) {
-      return NextResponse.json(
-        {
-          error: `Database is not configured. Missing environment variables: ${validation.missing.join(
-            ", "
-          )}.`,
-          missing: validation.missing,
-        },
-        { status: 500 }
-      );
-    }
-
     const body = await request.json();
     const { name, description, color, id } = body;
 
@@ -64,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const createdTag = await recordingStore.createTag!({
+    const createdTag = await recordingStore.createTag({
       id: typeof id === "string" && id.trim() ? id.trim() : undefined,
       name: name.trim(),
       description: description.trim(),

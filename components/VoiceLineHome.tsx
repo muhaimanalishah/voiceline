@@ -19,8 +19,8 @@ export default function VoiceLineHome() {
   const [renameTarget, setRenameTarget] = useState<TagWithCount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TagWithCount | null>(null);
 
-  // Re-mounts all TagGroup components to refetch after mutations (create/rename/delete/new recording)
-  const [refreshKey, setRefreshKey] = useState(0);
+  // Trigger to refetch opened TagGroup components after mutations without unmounting
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const loadTags = useCallback(async () => {
     try {
@@ -38,30 +38,12 @@ export default function VoiceLineHome() {
   }, []);
 
   useEffect(() => {
-    let ignore = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/tags");
-        const data = await res.json();
-        if (!ignore && res.ok) {
-          setTags(data.tags || []);
-          setUnclassifiedCount(data.unclassifiedCount || 0);
-        }
-      } catch (err) {
-        console.error("Failed to load tags:", err);
-      } finally {
-        if (!ignore) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      ignore = true;
-    };
-  }, []);
+    loadTags();
+  }, [loadTags]);
 
   const handleDataChanged = () => {
     loadTags();
-    setRefreshKey((k) => k + 1);
+    setRefreshTrigger((k) => k + 1);
   };
 
   const handleRecordingCreated = () => {
@@ -123,13 +105,14 @@ export default function VoiceLineHome() {
             <Loader2 size={28} style={{ animation: "spin 0.8s linear infinite" }} />
           </div>
         ) : (
-          <div className={styles.groupsList} key={refreshKey}>
+          <div className={styles.groupsList}>
             <TagGroup
               tagId={null}
               name="Unclassified"
               description="no tag assigned yet"
               totalCount={unclassifiedCount}
               defaultOpen
+              refreshTrigger={refreshTrigger}
             />
 
             {tags.map((tag) => (
@@ -140,6 +123,7 @@ export default function VoiceLineHome() {
                 description={tag.description}
                 color={tag.color}
                 totalCount={tag.recordingCount}
+                refreshTrigger={refreshTrigger}
                 onRename={() => setRenameTarget(tag)}
                 onDelete={() => setDeleteTarget(tag)}
               />
@@ -164,7 +148,12 @@ export default function VoiceLineHome() {
         <NewTagModal onClose={() => setShowNewTag(false)} onCreated={handleDataChanged} />
       )}
       {showManageTags && (
-        <ManageTagsModal onClose={() => setShowManageTags(false)} onChanged={handleDataChanged} />
+        <ManageTagsModal
+          tags={tags}
+          isLoading={isLoading}
+          onClose={() => setShowManageTags(false)}
+          onChanged={handleDataChanged}
+        />
       )}
       {renameTarget && (
         <RenameTagModal

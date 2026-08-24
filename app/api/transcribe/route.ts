@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import OpenAI, { toFile } from "openai";
-import { drizzleRecordingStore } from "@/lib/recordings/drizzle-store";
-import { validateDatabaseEnv } from "@/lib/recordings";
+import { recordingStore } from "@/lib/recordings";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,19 +9,6 @@ export async function POST(request: NextRequest) {
     if (!apiKey) {
       return NextResponse.json(
         { error: "OPENAI_API_KEY is not configured on the server." },
-        { status: 500 }
-      );
-    }
-
-    const validation = validateDatabaseEnv();
-    if (!validation.valid) {
-      return NextResponse.json(
-        {
-          error: `Database is not configured. Missing environment variables: ${validation.missing.join(
-            ", "
-          )}.`,
-          missing: validation.missing,
-        },
         { status: 500 }
       );
     }
@@ -80,7 +66,7 @@ export async function POST(request: NextRequest) {
     })}`;
 
     // Save directly to PostgreSQL (audio buffer is automatically discarded from memory)
-    await drizzleRecordingStore.saveRecording({
+    await recordingStore.saveRecording({
       id: noteId,
       title: defaultTitle,
       transcript: transcriptionText,

@@ -160,14 +160,6 @@ export class DrizzleRecordingStore implements RecordingStore {
     };
   }
 
-  async updateTranscription(
-    id: string,
-    newText: string,
-    newTitle?: string
-  ): Promise<boolean> {
-    return this.updateRecording(id, { text: newText, title: newTitle });
-  }
-
   async updateRecording(
     id: string,
     updates: { text?: string; title?: string; tagId?: string | null }

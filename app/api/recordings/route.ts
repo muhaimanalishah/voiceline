@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     };
 
     const result = tagIdParam
-      ? await recordingStore.getRecordingsByTag!(
+      ? await recordingStore.getRecordingsByTag(
           tagIdParam === "unclassified" ? null : tagIdParam,
           options
         )
