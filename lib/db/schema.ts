@@ -1,7 +1,22 @@
 import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
 
+export const tags = pgTable("tags", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  color: text("color"),
+  createdAt: timestamp("created_at", { mode: "string", withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date().toISOString()),
+});
+
 export const recordings = pgTable("recordings", {
   id: text("id").primaryKey(),
+  tagId: text("tag_id").notNull().references(() => tags.id, {onDelete: "set null"}),
   title: text("title"),
   transcript: text("transcript").notNull(),
   rawTranscript: text("raw_transcript").notNull(),
@@ -16,6 +31,10 @@ export const recordings = pgTable("recordings", {
     .$onUpdate(() => new Date().toISOString()),
 });
 
+export type TagRow = typeof tags.$inferSelect;
+export type NewTagRow = typeof tags.$inferInsert;
+
 export type RecordingRow = typeof recordings.$inferSelect;
 export type NewRecordingRow = typeof recordings.$inferInsert;
+
 
