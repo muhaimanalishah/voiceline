@@ -485,9 +485,26 @@
   .idleCenter {
     display: none;
   }
+
   .canvasWrap {
-    display: none;
+    display: flex;
+    flex: 1;
+    min-width: 50px;
+    max-width: 150px;
+    height: 28px;
+    padding: 0 0.15rem;
   }
+
+  .visualizerCanvas {
+    max-width: 150px;
+    height: 28px;
+  }
+
+  .stopBtn {
+    padding: 0 0.65rem;
+    font-size: 0.72rem;
+  }
+
   .kbdHint {
     display: none;
   }
