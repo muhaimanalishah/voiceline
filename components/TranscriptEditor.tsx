@@ -6,11 +6,11 @@ import {
   Check,
   Download,
   Trash2,
-  RotateCcw,
   Sparkles,
   CheckCircle2,
   ArrowLeft,
   ChevronDown,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -28,7 +28,10 @@ import { exportNoteAsMarkdown } from "@/lib/utils/export";
 import { formatFullDate } from "@/lib/utils/format";
 import { useKeyboardShortcut } from "@/lib/hooks/useKeyboardShortcut";
 import { useTagsQuery } from "@/lib/hooks/queries/useTags";
-import { useUpdateRecordingMutation } from "@/lib/hooks/queries/useRecordings";
+import {
+  useUpdateRecordingMutation,
+  useProcessRecordingMutation,
+} from "@/lib/hooks/queries/useRecordings";
 import styles from "./TranscriptEditor.module.css";
 
 interface TranscriptEditorProps {
@@ -43,35 +46,38 @@ export default function TranscriptEditor({
   onDelete,
 }: TranscriptEditorProps) {
   const [title, setTitle] = useState(recording.title || recording.id);
-  const [text, setText] = useState(recording.text);
-  const [rawTranscript, setRawTranscript] = useState(
-    recording.rawTranscript || recording.text
+  const [cleanText, setCleanText] = useState(recording.text || "");
+  const [rawTranscript] = useState(recording.rawTranscript || recording.text || "");
+  const [isProcessed, setIsProcessed] = useState(Boolean(recording.text));
+  const [viewMode, setViewMode] = useState<"clean" | "raw">(
+    recording.text ? "clean" : "raw"
   );
+
   const [currentTagId, setCurrentTagId] = useState<string | null>(
     recording.tagId ?? null
   );
   const [summary, setSummary] = useState<string[] | null>(
     recording.summary ?? null
   );
-  const [isClassified, setIsClassified] = useState(Boolean(recording.isClassified));
   const [isSaving, setIsSaving] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [isClassifying, setIsClassifying] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showClassifyWarning, setShowClassifyWarning] = useState(false);
+  const [showProcessWarning, setShowProcessWarning] = useState(false);
 
   const { data: tagsData } = useTagsQuery();
   const tags = tagsData?.tags || [];
   const activeTag = tags.find((t) => t.id === currentTagId);
 
   const updateMutation = useUpdateRecordingMutation();
+  const processMutation = useProcessRecordingMutation();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const activeDisplayText = viewMode === "clean" ? cleanText : rawTranscript;
+
   const saveChanges = useCallback(
-    async (textToSave: string = text, titleToSave: string = title) => {
+    async (textToSave: string = cleanText, titleToSave: string = title) => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       setIsSaving(true);
       try {
@@ -84,38 +90,42 @@ export default function TranscriptEditor({
         setIsSaving(false);
       }
     },
-    [recording.id, text, title, onUpdate]
+    [recording.id, cleanText, title, onUpdate]
   );
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
-    setText(newText);
-    const unsaved =
-      newText !== recording.text || title !== (recording.title || recording.id);
-    setHasUnsavedChanges(unsaved);
+    if (viewMode === "clean") {
+      setCleanText(newText);
+      const unsaved =
+        newText !== (recording.text || "") ||
+        title !== (recording.title || recording.id);
+      setHasUnsavedChanges(unsaved);
 
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => {
-      saveChanges(newText, title);
-    }, 2000);
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        saveChanges(newText, title);
+      }, 2000);
+    }
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
     const unsaved =
-      text !== recording.text || newTitle !== (recording.title || recording.id);
+      cleanText !== (recording.text || "") ||
+      newTitle !== (recording.title || recording.id);
     setHasUnsavedChanges(unsaved);
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
-      saveChanges(text, newTitle);
+      saveChanges(cleanText, newTitle);
     }, 2000);
   };
 
   const handleTitleBlur = () => {
     if (hasUnsavedChanges) {
-      saveChanges(text, title);
+      saveChanges(cleanText, title);
     }
   };
 
@@ -135,89 +145,58 @@ export default function TranscriptEditor({
     }
   };
 
-  const runClassification = async () => {
-    setIsClassifying(true);
-    setShowClassifyWarning(false);
+  const runProcess = async () => {
+    setShowProcessWarning(false);
     try {
-      const res = await fetch(
-        `/api/recordings/${encodeURIComponent(recording.id)}/classify`,
-        { method: "POST" }
-      );
-      const data = await res.json();
-      if (!res.ok || !data.title) {
-        throw new Error(data.error || "Failed to classify note.");
+      const data = await processMutation.mutateAsync(recording.id);
+      if (data?.text) {
+        setCleanText(data.text);
+        setIsProcessed(true);
+        setViewMode("clean");
       }
-
-      const generatedTitle = data.title;
-      const updatedText = data.text || text;
-      setTitle(generatedTitle);
-      setText(updatedText);
-      setIsClassified(true);
-      if (data.tagId !== undefined) {
+      if (data?.title) {
+        setTitle(data.title);
+      }
+      if (data?.tagId !== undefined) {
         setCurrentTagId(data.tagId);
       }
-      if (Array.isArray(data.summary)) {
+      if (Array.isArray(data?.summary)) {
         setSummary(data.summary);
       }
       setHasUnsavedChanges(false);
-      await onUpdate(recording.id, updatedText, generatedTitle);
-      toast.success("Translated, summarized & classified");
+      await onUpdate(recording.id, data.text || cleanText, data.title || title);
+      toast.success("Voice note processed into clean text");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Classification failed";
-      console.error("Classification error:", err);
+      const msg = err instanceof Error ? err.message : "Processing failed.";
+      console.error("Processing error:", err);
       toast.error(msg);
-    } finally {
-      setIsClassifying(false);
     }
   };
 
-  const handleClassifyClick = () => {
-    if (isClassified) {
-      setShowClassifyWarning(true);
+  const handleProcessClick = () => {
+    if (isProcessed) {
+      setShowProcessWarning(true);
     } else {
-      runClassification();
+      runProcess();
     }
   };
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(activeDisplayText);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast.success(`Copied ${viewMode === "clean" ? "clean" : "raw"} text to clipboard`);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
       toast.error("Failed to copy to clipboard.");
     }
-  }, [text]);
-
-  const handleResetToRaw = async () => {
-    setIsResetting(true);
-    try {
-      const res = await fetch(`/api/recordings/${encodeURIComponent(recording.id)}/reset`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      const targetText = data.text || rawTranscript;
-      setText(targetText);
-      if (data.rawTranscript) setRawTranscript(data.rawTranscript);
-      setHasUnsavedChanges(false);
-      await onUpdate(recording.id, targetText, title);
-      toast.success("Reset to original transcript");
-    } catch (err) {
-      console.error("Failed to reset transcript:", err);
-      setText(rawTranscript);
-      setHasUnsavedChanges(false);
-      toast.info("Reset to cached original transcript");
-    } finally {
-      setIsResetting(false);
-    }
-  };
+  }, [activeDisplayText, viewMode]);
 
   const handleDownloadMarkdown = () => {
     exportNoteAsMarkdown({
       title,
-      text,
+      text: activeDisplayText,
       createdAt: recording.createdAt,
       model: recording.model,
       summary,
@@ -243,7 +222,7 @@ export default function TranscriptEditor({
   useKeyboardShortcut(
     "ctrl+s",
     () => {
-      saveChanges(text, title);
+      saveChanges(cleanText, title);
       toast.success("Saved");
     },
     { allowInInputs: true }
@@ -253,9 +232,10 @@ export default function TranscriptEditor({
     handleCopy();
   });
 
-  const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
-  const charCount = text.length;
-  const hasModifiedRaw = rawTranscript && text.trim() !== rawTranscript.trim();
+  const wordCount = activeDisplayText.trim()
+    ? activeDisplayText.trim().split(/\s+/).length
+    : 0;
+  const charCount = activeDisplayText.length;
   const formattedDate = formatFullDate(recording.createdAt);
 
   return (
@@ -324,6 +304,33 @@ export default function TranscriptEditor({
                   </DropdownMenuItem>
                 ))}
               </DropdownMenu>
+
+              {/* Raw vs Clean View Mode Pill Toggle */}
+              {isProcessed && (
+                <>
+                  <span className={styles.metaDot}>•</span>
+                  <div className={styles.viewModeToggle}>
+                    <button
+                      type="button"
+                      className={`${styles.viewModeBtn} ${
+                        viewMode === "clean" ? styles.viewModeBtnActive : ""
+                      }`}
+                      onClick={() => setViewMode("clean")}
+                    >
+                      Clean
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.viewModeBtn} ${
+                        viewMode === "raw" ? styles.viewModeBtnActive : ""
+                      }`}
+                      onClick={() => setViewMode("raw")}
+                    >
+                      Raw
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -331,25 +338,13 @@ export default function TranscriptEditor({
             <Button
               variant="outline"
               size="sm"
-              onClick={handleClassifyClick}
-              isLoading={isClassifying}
+              onClick={handleProcessClick}
+              isLoading={processMutation.isPending}
               icon={<Sparkles size={13} />}
-              title="Classify Note (Generate AI Title)"
+              title="Process Note (Clean speech, title & organize)"
             >
-              Classify
+              {isProcessed ? "Re-process" : "Process Note"}
             </Button>
-            {hasModifiedRaw ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleResetToRaw}
-                isLoading={isResetting}
-                icon={<RotateCcw size={13} />}
-                title="Reset to original OpenAI transcript"
-              >
-                Reset
-              </Button>
-            ) : null}
             <Button
               variant="outline"
               size="sm"
@@ -380,6 +375,14 @@ export default function TranscriptEditor({
 
         {/* Expansive Main Editor Area */}
         <div className={styles.editorArea}>
+          {/* Raw Mode Banner Indicator */}
+          {viewMode === "raw" && isProcessed && (
+            <div className={styles.rawBanner}>
+              <FileText size={13} />
+              <span>Viewing original raw audio transcript (read-only). Switch to <strong>Clean</strong> to edit.</span>
+            </div>
+          )}
+
           {/* Key Takeaways Summary Card */}
           {summary && summary.length > 0 && (
             <div className={styles.summaryCard}>
@@ -400,9 +403,14 @@ export default function TranscriptEditor({
           <textarea
             className={styles.textarea}
             dir="auto"
-            value={text}
+            value={activeDisplayText}
             onChange={handleTextChange}
-            placeholder="Write note or start speaking..."
+            readOnly={viewMode === "raw" && isProcessed}
+            placeholder={
+              viewMode === "raw"
+                ? "Original audio transcript..."
+                : "Cleaned note text..."
+            }
           />
         </div>
       </div>
@@ -413,6 +421,7 @@ export default function TranscriptEditor({
           <span>{wordCount} words</span>
           <span>•</span>
           <span>{charCount} characters</span>
+          {viewMode === "raw" && <span>• (Raw transcript)</span>}
         </div>
 
         <div className={styles.saveStatus}>
@@ -430,15 +439,16 @@ export default function TranscriptEditor({
         </div>
       </div>
 
-      {/* Already-Classified Warning Confirmation Modal */}
-      {showClassifyWarning && (
+      {/* Re-process Confirmation Warning Modal */}
+      {showProcessWarning && (
         <ConfirmDialog
-          title="Already Classified"
-          description="This note has already been classified. Classifying again will re-evaluate tags and generate a new AI title."
-          confirmText="Classify Anyway"
+          title="Re-process Note?"
+          description="This note has already been cleaned and processed. Re-processing will re-evaluate the raw transcript and refresh the clean text."
+          confirmText="Re-process"
           variant="warning"
-          onConfirm={runClassification}
-          onCancel={() => setShowClassifyWarning(false)}
+          isLoading={processMutation.isPending}
+          onConfirm={runProcess}
+          onCancel={() => setShowProcessWarning(false)}
         />
       )}
 
@@ -461,3 +471,4 @@ export default function TranscriptEditor({
     </div>
   );
 }
+

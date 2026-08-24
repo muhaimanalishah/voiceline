@@ -73,11 +73,11 @@ export async function POST(request: NextRequest) {
       year: "numeric",
     })}`;
 
-    // Save directly to PostgreSQL (audio buffer is automatically discarded from memory)
+    // Save directly to PostgreSQL (transcript is null until processed)
     await recordingStore.saveRecording({
       id: noteId,
       title: defaultTitle,
-      transcript: transcriptionText,
+      transcript: null,
       rawTranscript: transcriptionText,
       modelUsed: model,
       createdAt,
@@ -87,8 +87,9 @@ export async function POST(request: NextRequest) {
       success: true,
       id: noteId,
       title: defaultTitle,
-      text: transcriptionText,
+      text: null,
       rawTranscript: transcriptionText,
+      isProcessed: false,
       model,
       createdAt,
     });

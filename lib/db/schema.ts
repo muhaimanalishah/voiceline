@@ -18,10 +18,9 @@ export const recordings = pgTable("recordings", {
   id: text("id").primaryKey(),
   tagId: text("tag_id").references(() => tags.id, { onDelete: "set null" }),
   title: text("title"),
-  transcript: text("transcript").notNull(),
+  transcript: text("transcript"),
   rawTranscript: text("raw_transcript").notNull(),
   summary: text("summary"),
-  isClassified: boolean("is_classified").notNull().default(false),
   modelUsed: text("model_used").notNull().default("gpt-4o-mini-transcribe"),
   duration: integer("duration"),
   createdAt: timestamp("created_at", { mode: "string", withTimezone: true })

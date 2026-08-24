@@ -33,7 +33,7 @@ export interface RecordingItem {
   summary?: string[] | null;
   model: string;
   hasTranscript: boolean;
-  isClassified?: boolean;
+  isProcessed: boolean;
   duration?: number | null;
 }
 
@@ -43,10 +43,10 @@ export interface RecordingDetail {
   title?: string;
   createdAt: string;
   updatedAt?: string;
-  text: string;
-  rawTranscript?: string;
+  text: string | null; // Clean / processed transcript (null if unprocessed)
+  rawTranscript: string; // Original audio transcription (always present)
   summary?: string[] | null;
-  isClassified?: boolean;
+  isProcessed: boolean;
   model: string;
   duration?: number | null;
 }
@@ -68,10 +68,9 @@ export interface NewRecordingInput {
   id: string;
   tagId?: string | null;
   title?: string;
-  transcript: string;
+  transcript?: string | null;
   rawTranscript: string;
   summary?: string[] | null;
-  isClassified?: boolean;
   modelUsed?: string;
   duration?: number | null;
   createdAt?: string;
@@ -91,10 +90,8 @@ export interface RecordingStore {
       title?: string;
       tagId?: string | null;
       summary?: string[] | null;
-      isClassified?: boolean;
     }
   ): Promise<boolean>;
-  resetToRawTranscript(id: string): Promise<boolean>;
   saveRecording(data: NewRecordingInput): Promise<boolean>;
   deleteRecording(id: string): Promise<boolean>;
   getAllTags(): Promise<TagItem[]>;

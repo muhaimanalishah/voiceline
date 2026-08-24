@@ -36,7 +36,7 @@ import {
   useRecordingsByTagInfiniteQuery,
   useUpdateRecordingMutation,
   useDeleteRecordingMutation,
-  useClassifyRecordingMutation,
+  useProcessRecordingMutation,
 } from "@/lib/hooks/queries/useRecordings";
 import styles from "./TagGroup.module.css";
 
@@ -56,9 +56,9 @@ interface TagGroupProps {
 function DraggableNoteRow({
   rec,
   sourceTagId,
-  isClassifying,
+  isProcessing,
   isCopied,
-  onClassify,
+  onProcess,
   onEdit,
   onCopy,
   onExport,
@@ -66,9 +66,9 @@ function DraggableNoteRow({
 }: {
   rec: RecordingItem;
   sourceTagId: string | null;
-  isClassifying: boolean;
+  isProcessing: boolean;
   isCopied: boolean;
-  onClassify: () => void;
+  onProcess: () => void;
   onEdit: () => void;
   onCopy: () => void;
   onExport: () => void;
@@ -130,16 +130,16 @@ function DraggableNoteRow({
         >
           <DropdownMenuItem
             icon={
-              isClassifying ? (
+              isProcessing ? (
                 <Spinner size="xs" />
               ) : (
                 <Sparkles size={12} />
               )
             }
-            disabled={isClassifying}
-            onClick={onClassify}
+            disabled={isProcessing}
+            onClick={onProcess}
           >
-            {isClassifying ? "Classifying..." : "Classify"}
+            {isProcessing ? "Processing..." : rec.isProcessed ? "Re-process" : "Process"}
           </DropdownMenuItem>
 
           <DropdownMenuItem
@@ -205,7 +205,7 @@ export default function TagGroup({
 
   const updateMutation = useUpdateRecordingMutation();
   const deleteMutation = useDeleteRecordingMutation();
-  const classifyMutation = useClassifyRecordingMutation();
+  const processMutation = useProcessRecordingMutation();
 
   // Droppable container setup for TagGroup
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
@@ -222,7 +222,6 @@ export default function TagGroup({
   const [editNoteTagId, setEditNoteTagId] = useState<string | null>(null);
 
   const [deleteNoteTarget, setDeleteNoteTarget] = useState<RecordingItem | null>(null);
-  const [classifyWarningTarget, setClassifyWarningTarget] = useState<RecordingItem | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const isUnclassified = tagId === null;
@@ -305,24 +304,19 @@ export default function TagGroup({
     }
   };
 
-  // Classify Note Submit
-  const runRowClassification = async (rec: RecordingItem) => {
-    setClassifyWarningTarget(null);
+  // Process Note Submit
+  const runRowProcess = async (rec: RecordingItem) => {
     try {
-      await classifyMutation.mutateAsync(rec.id);
-      toast.success("Note classified.");
+      await processMutation.mutateAsync(rec.id);
+      toast.success("Voice note processed into clean text.");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to classify note.";
+      const msg = err instanceof Error ? err.message : "Failed to process note.";
       toast.error(msg);
     }
   };
 
-  const handleClassifyNoteClick = (rec: RecordingItem) => {
-    if (rec.isClassified) {
-      setClassifyWarningTarget(rec);
-    } else {
-      runRowClassification(rec);
-    }
+  const handleProcessNoteClick = (rec: RecordingItem) => {
+    runRowProcess(rec);
   };
 
   const selectedEditTag = availableTags.find((t) => t.id === editNoteTagId);
@@ -406,9 +400,9 @@ export default function TagGroup({
             </div>
           ) : (
             displayedRecordings.map((rec) => {
-              const isClassifying =
-                classifyMutation.isPending &&
-                classifyMutation.variables === rec.id;
+              const isProcessing =
+                processMutation.isPending &&
+                processMutation.variables === rec.id;
               const isCopied = copiedId === rec.id;
 
               return (
@@ -416,9 +410,9 @@ export default function TagGroup({
                   key={rec.id}
                   rec={rec}
                   sourceTagId={tagId}
-                  isClassifying={isClassifying}
+                  isProcessing={isProcessing}
                   isCopied={isCopied}
-                  onClassify={() => handleClassifyNoteClick(rec)}
+                  onProcess={() => handleProcessNoteClick(rec)}
                   onEdit={() => handleOpenEditModal(rec)}
                   onCopy={() => handleCopyNote(rec)}
                   onExport={() => handleExportNote(rec)}
@@ -528,18 +522,6 @@ export default function TagGroup({
           isLoading={deleteMutation.isPending}
           onConfirm={handleDeleteNoteSubmit}
           onCancel={() => setDeleteNoteTarget(null)}
-        />
-      )}
-
-      {/* Already-Classified Warning Confirmation Modal */}
-      {classifyWarningTarget && (
-        <ConfirmDialog
-          title="Already Classified"
-          description="This note has already been classified. Classifying again will re-evaluate tags and update the title."
-          confirmText="Classify Anyway"
-          variant="warning"
-          onConfirm={() => runRowClassification(classifyWarningTarget)}
-          onCancel={() => setClassifyWarningTarget(null)}
         />
       )}
     </div>

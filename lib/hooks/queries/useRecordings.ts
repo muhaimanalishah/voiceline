@@ -90,24 +90,31 @@ export function useDeleteRecordingMutation() {
   });
 }
 
-export function useClassifyRecordingMutation() {
+export function useProcessRecordingMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(
-        `/api/recordings/${encodeURIComponent(id)}/classify`,
+        `/api/recordings/${encodeURIComponent(id)}/process`,
         { method: "POST" }
       );
       const data = await res.json();
-      if (!res.ok || !data.title) {
-        throw new Error(data.error || "Failed to classify note.");
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to process note.");
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.recordings.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.tags.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.recordings.detail(id),
+      });
     },
   });
 }
+
+// Backward-compatibility alias
+export const useClassifyRecordingMutation = useProcessRecordingMutation;
+

@@ -35,3 +35,41 @@ export function formatFullDate(isoString: string): string {
     return isoString;
   }
 }
+
+/**
+ * Converts a string into proper English Title Case.
+ */
+export function toTitleCase(str: string): string {
+  if (!str) return "";
+  const minorWords = new Set([
+    "a", "an", "the", "and", "but", "or", "for", "nor", "on", "at", "to", "from", "by", "with", "in", "of"
+  ]);
+
+  return str
+    .trim()
+    .replace(/^["'`]|["'`]$/g, "") // strip wrapping quotes
+    .split(/\s+/)
+    .map((word, i) => {
+      const lower = word.toLowerCase();
+      if (i > 0 && minorWords.has(lower)) {
+        return lower;
+      }
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+}
+
+/**
+ * Checks if a note's title is a default placeholder or matches the note ID.
+ */
+export function isDefaultTitle(title: string | null | undefined, noteId: string): boolean {
+  if (!title) return true;
+  const t = title.trim();
+  return (
+    t === "" ||
+    t.toLowerCase() === "untitled note" ||
+    t === noteId ||
+    /^Voice Note\s*-\s*/i.test(t)
+  );
+}
+
