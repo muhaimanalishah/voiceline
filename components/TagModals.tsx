@@ -327,7 +327,7 @@ export function ManageTagsModal({ tags, isLoading = false, onClose }: ManageTags
 
 export function ShortcutsModal({ onClose }: { onClose: () => void }) {
   const shortcuts = [
-    { key: "Cmd + K", desc: "Focus search bar" },
+    { key: "Ctrl + K", desc: "Focus search bar" },
     { key: "Alt + N", desc: "Scroll to recorder" },
     { key: "Ctrl + S", desc: "Save transcript edits" },
     { key: "Alt + C", desc: "Copy active transcript" },

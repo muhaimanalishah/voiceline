@@ -158,7 +158,7 @@ export default function VoiceLineHome() {
             placeholder="Search notes..."
             value={searchQuery}
             onChange={setSearchQuery}
-            shortcut="⌘K"
+            shortcut="Ctrl+K"
           />
         </div>
 
@@ -217,7 +217,7 @@ export default function VoiceLineHome() {
 
         <div className={styles.shortcutBar} onClick={() => setShowShortcuts(true)}>
           <div className={styles.shortcutItem}>
-            <Kbd>⌘K</Kbd>
+            <Kbd>Ctrl+K</Kbd>
             <span>Search</span>
           </div>
           <span className={styles.dividerDot}>•</span>

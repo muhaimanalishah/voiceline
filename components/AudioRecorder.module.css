@@ -1,6 +1,6 @@
 .floatingWrapper {
   position: fixed;
-  bottom: 1.75rem;
+  bottom: 3.25rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
@@ -12,7 +12,7 @@
 
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .floatingWrapper {
-    bottom: max(1.75rem, calc(0.75rem + env(safe-area-inset-bottom)));
+    bottom: max(3.25rem, calc(2.25rem + env(safe-area-inset-bottom)));
   }
 }
 

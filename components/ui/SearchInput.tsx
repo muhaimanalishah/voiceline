@@ -17,7 +17,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
     {
       value,
       onChange,
-      shortcut = "⌘K",
+      shortcut = "Ctrl+K",
       placeholder = "Search...",
       className = "",
       ...props

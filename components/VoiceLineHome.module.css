@@ -118,27 +118,28 @@
 
 .shortcutBar {
   position: fixed;
-  bottom: 1.25rem;
-  right: 2rem;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 26px;
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.35rem 0.75rem;
-  background: var(--surface-overlay);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  backdrop-filter: blur(12px);
-  font-size: 0.7rem;
-  color: var(--foreground-muted);
-  box-shadow: var(--shadow-md);
-  z-index: 40;
+  justify-content: center;
+  gap: 1.25rem;
+  background: rgba(9, 9, 11, 0.92);
+  border-top: 1px solid var(--border-subtle);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  font-size: 0.68rem;
+  color: var(--muted);
+  z-index: 30;
   cursor: pointer;
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition: color 0.12s ease;
+  user-select: none;
 }
 
 .shortcutBar:hover {
-  color: var(--foreground);
-  background: var(--surface-raised);
+  color: var(--foreground-muted);
 }
 
 .shortcutItem {
