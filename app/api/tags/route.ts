@@ -38,9 +38,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const trimmedName = name.trim();
+    const existingTags = await recordingStore.getAllTags();
+    const isDuplicate = existingTags.some(
+      (t) => t.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (isDuplicate) {
+      return NextResponse.json(
+        { error: `A tag with name "${trimmedName}" already exists.` },
+        { status: 409 }
+      );
+    }
+
     const createdTag = await recordingStore.createTag({
       id: typeof id === "string" && id.trim() ? id.trim() : undefined,
-      name: name.trim(),
+      name: trimmedName,
       description: description.trim(),
       color: typeof color === "string" ? color.trim() : null,
     });

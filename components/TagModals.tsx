@@ -1,11 +1,46 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { X, Plus, Pencil, Trash2, AlertTriangle, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { TagWithCount } from "@/lib/recordings/types";
 import styles from "./TagModals.module.css";
 
 const TAG_COLORS = ["#ef4444", "#3b82f6", "#eab308", "#22c55e", "#a855f7", "#71717a"];
+
+interface PresetTag {
+  name: string;
+  description: string;
+  color: string;
+}
+
+const PRESET_TAGS: PresetTag[] = [
+  {
+    name: "Work",
+    description: "Tasks, projects, work meetings, and professional updates.",
+    color: "#3b82f6",
+  },
+  {
+    name: "Personal",
+    description: "Daily thoughts, personal errands, health, and family.",
+    color: "#22c55e",
+  },
+  {
+    name: "Ideas",
+    description: "Creative thoughts, brainstorms, concepts, and future projects.",
+    color: "#a855f7",
+  },
+  {
+    name: "Meeting",
+    description: "Action items, meeting summaries, discussions, and decisions.",
+    color: "#eab308",
+  },
+  {
+    name: "To-Do",
+    description: "Actionable tasks, checklists, and immediate follow-ups.",
+    color: "#ef4444",
+  },
+];
 
 interface NewTagModalProps {
   onClose: () => void;
@@ -19,9 +54,18 @@ export function NewTagModal({ onClose, onCreated }: NewTagModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const handleSelectPreset = (preset: PresetTag) => {
+    setName(preset.name);
+    setDescription(preset.description);
+    setColor(preset.color);
+    setError(null);
+  };
+
   const handleSubmit = async () => {
     if (!name.trim() || !description.trim()) {
-      setError("Name and description are required.");
+      const msg = "Name and description are required.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
     setIsSaving(true);
@@ -34,10 +78,13 @@ export function NewTagModal({ onClose, onCreated }: NewTagModalProps) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create tag.");
+      toast.success(`Tag "${name.trim()}" created successfully!`);
       onCreated();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create tag.");
+      const msg = err instanceof Error ? err.message : "Failed to create tag.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsSaving(false);
     }
@@ -91,6 +138,34 @@ export function NewTagModal({ onClose, onCreated }: NewTagModalProps) {
           </div>
         </div>
 
+        <div className={styles.field}>
+          <label className={styles.label}>Suggestions</label>
+          <div className={styles.presetList}>
+            {PRESET_TAGS.map((preset) => {
+              const isSelected =
+                name === preset.name &&
+                description === preset.description &&
+                color === preset.color;
+
+              return (
+                <button
+                  key={preset.name}
+                  type="button"
+                  className={`${styles.presetChip} ${isSelected ? styles.presetChipActive : ""}`}
+                  onClick={() => handleSelectPreset(preset)}
+                  title={`Click to fill: ${preset.description}`}
+                >
+                  <span
+                    className={styles.presetChipDot}
+                    style={{ background: preset.color }}
+                  />
+                  <span>{preset.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className={styles.actions}>
           <button type="button" className={styles.btnGhost} onClick={onClose}>
             Cancel
@@ -118,7 +193,9 @@ export function RenameTagModal({ tag, onClose, onUpdated }: RenameTagModalProps)
 
   const handleSubmit = async () => {
     if (!name.trim() || !description.trim()) {
-      setError("Name and description are required.");
+      const msg = "Name and description are required.";
+      setError(msg);
+      toast.error(msg);
       return;
     }
     setIsSaving(true);
@@ -131,10 +208,13 @@ export function RenameTagModal({ tag, onClose, onUpdated }: RenameTagModalProps)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update tag.");
+      toast.success(`Tag "${name.trim()}" updated successfully!`);
       onUpdated();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update tag.");
+      const msg = err instanceof Error ? err.message : "Failed to update tag.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsSaving(false);
     }
@@ -204,10 +284,13 @@ export function DeleteTagModal({ tag, onClose, onDeleted }: DeleteTagModalProps)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete tag.");
+      toast.success(`Tag "${tag.name}" deleted.`);
       onDeleted();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete tag.");
+      const msg = err instanceof Error ? err.message : "Failed to delete tag.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsDeleting(false);
     }
