@@ -109,14 +109,34 @@ function DraggableNoteRow({
         <div className={styles.rowMain}>
           <div className={styles.rowTitleRow}>
             <span className={styles.rowTitle}>{rec.title || "Untitled Note"}</span>
+            <Badge variant={rec.isProcessed ? "success" : "warning"}>
+              {rec.isProcessed ? "Clean" : "Raw"}
+            </Badge>
           </div>
           <div className={styles.rowPreview}>{rec.textPreview || "Empty note"}</div>
         </div>
         <span className={styles.rowDate}>{formatRelativeDate(rec.createdAt)}</span>
       </Link>
 
-      {/* 3-Dots Action Menu on each note row */}
+      {/* Action buttons on note row */}
       <div className={styles.rowActionsWrap}>
+        {!rec.isProcessed && (
+          <button
+            type="button"
+            className={styles.rowInlineProcessBtn}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onProcess();
+            }}
+            disabled={isProcessing}
+            title="Process audio with AI"
+          >
+            {isProcessing ? <Spinner size="xs" /> : <Sparkles size={11} />}
+            <span>Process</span>
+          </button>
+        )}
+
         <DropdownMenu
           trigger={
             <button
@@ -355,9 +375,9 @@ export default function TagGroup({
         </button>
 
         <div className={styles.headerRight}>
-          <Badge variant="muted">
-            {totalCount} {totalCount === 1 ? "note" : "notes"}
-          </Badge>
+          <span className={styles.countPill}>
+            {totalCount}
+          </span>
 
           {!isUnclassified && (
             <DropdownMenu

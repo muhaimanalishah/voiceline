@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import TranscriptEditor from "@/components/TranscriptEditor";
+import AudioRecorder from "@/components/AudioRecorder";
 import { RecordingDetail } from "@/lib/recordings/types";
 import {
   useUpdateRecordingMutation,
@@ -35,10 +36,17 @@ export default function NotePageClient({ recording }: NotePageClientProps) {
   };
 
   return (
-    <TranscriptEditor
-      recording={recording}
-      onUpdate={handleUpdate}
-      onDelete={handleDelete}
-    />
+    <>
+      <TranscriptEditor
+        recording={recording}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+      />
+      <AudioRecorder
+        onRecordingCreated={(createdId) => {
+          router.push(`/notes/${encodeURIComponent(createdId)}`);
+        }}
+      />
+    </>
   );
 }

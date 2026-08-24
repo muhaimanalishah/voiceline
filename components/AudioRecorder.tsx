@@ -458,29 +458,38 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isRecording && !isTranscribing) {
-      setIsDraggingOver(true);
-    }
-  };
+  useEffect(() => {
+    const onWindowDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (!isRecording && !isTranscribing) {
+        setIsDraggingOver(true);
+      }
+    };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-  };
+    const onWindowDragLeave = (e: DragEvent) => {
+      if (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+        setIsDraggingOver(false);
+      }
+    };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
+    const onWindowDrop = (e: DragEvent) => {
+      e.preventDefault();
+      setIsDraggingOver(false);
+      if (!isRecording && !isTranscribing && e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        processAudioUpload(e.dataTransfer.files[0]);
+      }
+    };
 
-    if (!isRecording && !isTranscribing && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processAudioUpload(e.dataTransfer.files[0]);
-    }
-  };
+    window.addEventListener("dragover", onWindowDragOver);
+    window.addEventListener("dragleave", onWindowDragLeave);
+    window.addEventListener("drop", onWindowDrop);
+
+    return () => {
+      window.removeEventListener("dragover", onWindowDragOver);
+      window.removeEventListener("dragleave", onWindowDragLeave);
+      window.removeEventListener("drop", onWindowDrop);
+    };
+  }, [isRecording, isTranscribing]);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -489,108 +498,112 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
   };
 
   return (
-    <div
-      className={`${styles.container} ${isDraggingOver ? styles.containerDragging : ""}`}
-      onDragOver={handleDragOver}
-      onDragEnter={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
+    <aside className={styles.floatingWrapper} aria-label="Audio Recorder">
       {error && (
         <div className={styles.errorBox}>
-          <AlertCircle size={15} />
+          <AlertCircle size={14} />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Morphing Dropzone when a file is dragged over */}
-      {isDraggingOver ? (
-        <div className={styles.morphDropzone}>
-          <UploadCloud size={28} className={styles.morphDropIcon} />
-          <div className={styles.morphDropTitle}>Drop audio file to transcribe</div>
-          <div className={styles.morphDropSubtitle}>MP3, M4A, WAV, WebM, OGG, AAC (Max 25MB)</div>
-        </div>
-      ) : isTranscribing ? (
-        <div className={styles.transcribingBar}>
-          <Spinner size="md" />
-          <span>Transcribing audio with OpenAI...</span>
-        </div>
-      ) : isRecording ? (
-        /* Active Recording Bar with Live Oscilloscope Waveform */
-        <div className={styles.recordingBar}>
-          <div className={styles.recordingLeft}>
-            <span className={styles.liveIndicator} />
-            <span className={styles.timer}>{formatTime(duration)}</span>
+      <div
+        className={`${styles.dockCapsule} ${isDraggingOver ? styles.dockCapsuleDragging : ""}`}
+      >
+        {/* Morphing Dropzone when a file is dragged over */}
+        {isDraggingOver ? (
+          <div className={styles.morphDropzone}>
+            <UploadCloud size={24} className={styles.morphDropIcon} />
+            <div className={styles.morphDropTitle}>Drop audio file here to transcribe</div>
+            <div className={styles.morphDropSubtitle}>MP3, M4A, WAV, WebM, OGG, AAC (Max 25MB)</div>
           </div>
+        ) : isTranscribing ? (
+          <div className={styles.transcribingBar}>
+            <Spinner size="sm" />
+            <span className={styles.shimmerText}>Transcribing audio with OpenAI Whisper...</span>
+          </div>
+        ) : isRecording ? (
+          /* Active Recording Bar with Live Oscilloscope Waveform */
+          <div className={styles.recordingBar}>
+            <div className={styles.recordingLeft}>
+              <span className={styles.pulseOrbWrap}>
+                <span className={styles.recordingPulseRing} />
+                <span className={styles.recordingPulseDot} />
+              </span>
+              <span className={styles.timer}>{formatTime(duration)}</span>
+            </div>
 
-          <div className={styles.canvasWrap}>
-            <canvas
-              ref={canvasRef}
-              width={340}
-              height={40}
-              className={styles.visualizerCanvas}
-            />
-          </div>
+            <div className={styles.canvasWrap}>
+              <canvas
+                ref={canvasRef}
+                width={260}
+                height={32}
+                className={styles.visualizerCanvas}
+              />
+            </div>
 
-          <div className={styles.recordingActions}>
-            <button
-              type="button"
-              className={styles.discardBtn}
-              onClick={discardRecording}
-              title="Discard recording (Esc)"
-              aria-label="Discard recording"
-            >
-              <Trash2 size={15} />
-            </button>
-            <button
-              type="button"
-              className={styles.stopBtn}
-              onClick={stopRecording}
-              title="Stop and transcribe note"
-            >
-              <Square size={13} fill="currentColor" />
-              <span>Stop & Transcribe</span>
-            </button>
+            <div className={styles.recordingActions}>
+              <button
+                type="button"
+                className={styles.discardBtn}
+                onClick={discardRecording}
+                title="Discard recording (Esc)"
+                aria-label="Discard recording"
+              >
+                <Trash2 size={14} />
+              </button>
+              <button
+                type="button"
+                className={styles.stopBtn}
+                onClick={stopRecording}
+                title="Stop and transcribe note"
+              >
+                <span className={styles.stopSquare} />
+                <span>Stop & Transcribe</span>
+              </button>
+            </div>
           </div>
-        </div>
-      ) : (
-        /* Unified Idle Bar: Record + Drag & Drop Prompt */
-        <div className={styles.idleBar}>
-          <div className={styles.idleLeft}>
+        ) : (
+          /* Unified Idle Bar: Record + Drag & Drop Prompt */
+          <div className={styles.idleBar}>
             <button
               type="button"
               className={styles.recordBtn}
               onClick={startRecording}
               title="Start recording (Alt+N)"
             >
-              <Mic size={15} />
+              <span className={styles.pulseOrbWrap}>
+                <span className={styles.pulseOrbRing} />
+                <span className={styles.pulseOrbDot} />
+              </span>
               <span>Start Recording</span>
+              <span className={styles.kbdHint}>Alt+N</span>
             </button>
-            <div className={styles.idlePrompt}>
-              <span className={styles.idleMainText}>or drag & drop audio file anywhere</span>
-              <span className={styles.idleSubText}>High Quality (128kbps) • 10 min limit</span>
+
+            <div className={styles.idleCenter}>
+              <span className={styles.idleMainText}>or drop audio anywhere</span>
+              <span className={styles.idleSubText}>128kbps • 10 min limit</span>
             </div>
+
+            <button
+              type="button"
+              className={styles.browseBtn}
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload audio file"
+            >
+              <FolderOpen size={13} />
+              <span>Upload</span>
+            </button>
           </div>
+        )}
 
-          <button
-            type="button"
-            className={styles.browseBtn}
-            onClick={() => fileInputRef.current?.click()}
-            title="Browse audio file"
-          >
-            <FolderOpen size={14} />
-            <span>Browse</span>
-          </button>
-        </div>
-      )}
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept="audio/*,.webm,.mp3,.m4a,.wav,.ogg,.aac,.acc,.flac"
-        style={{ display: "none" }}
-        onChange={handleFileInputChange}
-      />
-    </div>
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="audio/*,.webm,.mp3,.m4a,.wav,.ogg,.aac,.acc,.flac"
+          style={{ display: "none" }}
+          onChange={handleFileInputChange}
+        />
+      </div>
+    </aside>
   );
 }

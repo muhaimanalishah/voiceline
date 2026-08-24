@@ -10,33 +10,50 @@
 
 .container {
   width: 100%;
-  max-width: 840px;
-  padding: 2.75rem 1.5rem 6rem 1.5rem;
+  max-width: 780px;
+  padding: 3rem 1.25rem 8rem 1.25rem;
   display: flex;
   flex-direction: column;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  font-size: 0.85rem;
+  gap: 0.5rem;
+  font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--foreground);
-  margin-bottom: 2rem;
 }
 
-.brandIcon {
+.brandIconWrap {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--accent-subtle);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--accent);
 }
 
-.recorderSection {
-  margin-bottom: 1.75rem;
+.headerActions {
   display: flex;
-  justify-content: center;
-  width: 100%;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.recorderSection {
+  display: contents;
 }
 
 .toolbar {

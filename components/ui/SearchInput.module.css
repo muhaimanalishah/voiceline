@@ -3,6 +3,7 @@
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .searchIcon {
@@ -16,17 +17,17 @@
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 2.2rem 0.5rem 2.2rem;
-  font-size: 0.85rem;
+  border-radius: var(--radius-md);
+  padding: 0.55rem 2.4rem 0.55rem 2.3rem;
+  font-size: 0.82rem;
   color: var(--foreground);
   outline: none;
   font-family: inherit;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .input:focus {
-  border-color: var(--border-focus);
+  border-color: rgba(255, 255, 255, 0.25);
   background: var(--surface-raised);
 }
 

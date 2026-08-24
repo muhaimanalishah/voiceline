@@ -124,38 +124,45 @@ export default function VoiceLineHome() {
   return (
     <div className={styles.page}>
       <div className={styles.container}>
-        <div className={styles.brand}>
-          <Mic size={16} className={styles.brandIcon} />
-          <span>VoiceLine</span>
-        </div>
+        <div className={styles.headerRow}>
+          <div className={styles.brand}>
+            <span className={styles.brandIconWrap}>
+              <Mic size={14} />
+            </span>
+            <span>VoiceLine</span>
+          </div>
 
-        <section className={styles.recorderSection}>
-          <AudioRecorder onRecordingCreated={handleRecordingCreated} />
-        </section>
+          <div className={styles.headerActions}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowNewTag(true)}
+              icon={<Plus size={13} />}
+            >
+              New tag
+            </Button>
+            <Button
+              variant="icon"
+              size="sm"
+              onClick={() => setShowManageTags(true)}
+              title="Manage tags"
+              aria-label="Manage tags"
+              icon={<Settings size={14} />}
+            />
+          </div>
+        </div>
 
         <div className={styles.toolbar}>
           <SearchInput
             ref={searchInputRef}
-            placeholder="Search notes or transcripts..."
+            placeholder="Search notes..."
             value={searchQuery}
             onChange={setSearchQuery}
             shortcut="⌘K"
           />
-          <Button
-            variant="ghost"
-            onClick={() => setShowNewTag(true)}
-            icon={<Plus size={14} />}
-          >
-            New tag
-          </Button>
-          <Button
-            variant="icon"
-            onClick={() => setShowManageTags(true)}
-            title="Manage tags"
-            aria-label="Manage tags"
-            icon={<Settings size={15} />}
-          />
         </div>
+
+        <AudioRecorder onRecordingCreated={handleRecordingCreated} />
 
         {isLoading ? (
           <div className={styles.loadingSpinner}>
