@@ -2,6 +2,14 @@
 
 VoiceLine is a voice-note app: record or upload audio, get it transcribed automatically, and let AI clean it up — generating a title, summarizing long notes, and auto-tagging them into categories you define.
 
+<p align="center">
+  <img src=".github/readme-assets/workspace.jpg" alt="VoiceLine workspace with notes grouped by tag" width="49%" />
+  <img src=".github/readme-assets/recording.jpg" alt="Recording a voice note with live waveform" width="49%" />
+</p>
+<p align="center">
+  <img src=".github/readme-assets/note-detail.jpg" alt="Note detail page with processed transcript" width="70%" />
+</p>
+
 ## How it works
 
 1. **Record or upload** audio from the floating recorder dock.
