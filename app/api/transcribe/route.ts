@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     const transcription = await openai.audio.transcriptions.create({
       file: openaiFile,
       model: model,
+      prompt: "The speaker may mix English and Urdu. Preserve Urdu words in Roman Urdu and keep English technical terms in English."
     });
 
     const transcriptionText = transcription.text;

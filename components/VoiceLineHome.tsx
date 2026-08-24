@@ -5,8 +5,15 @@ import { useRouter } from "next/navigation";
 import { Mic, Search, Plus, Settings, Loader2 } from "lucide-react";
 import AudioRecorder from "./AudioRecorder";
 import TagGroup from "./TagGroup";
-import { NewTagModal, RenameTagModal, DeleteTagModal, ManageTagsModal, ShortcutsModal } from "./TagModals";
+import {
+  NewTagModal,
+  RenameTagModal,
+  DeleteTagModal,
+  ManageTagsModal,
+  ShortcutsModal,
+} from "./TagModals";
 import { TagWithCount } from "@/lib/recordings/types";
+import { useKeyboardShortcut } from "@/lib/hooks/useKeyboardShortcut";
 import styles from "./VoiceLineHome.module.css";
 
 export default function VoiceLineHome() {
@@ -56,44 +63,18 @@ export default function VoiceLineHome() {
     router.push(`/notes/${encodeURIComponent(createdId)}`);
   };
 
-  // Keyboard Shortcuts: Cmd+K / Ctrl+K, Alt+N, ?, Esc
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Focus Search: Cmd+K / Ctrl+K or / (when not typing in an input)
-      if (
-        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") ||
-        (e.key === "/" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA")
-      ) {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        return;
-      }
-
-      // Alt+N: scroll to recorder
-      if (e.altKey && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-
-      // ?: Toggle keyboard shortcuts helper (when not typing)
-      if (e.key === "?" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
-        e.preventDefault();
-        setShowShortcuts((v) => !v);
-        return;
-      }
-
-      // Esc: Close open modals
-      if (e.key === "Escape") {
-        if (showShortcuts) setShowShortcuts(false);
-        if (showNewTag) setShowNewTag(false);
-        if (showManageTags) setShowManageTags(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showShortcuts, showNewTag, showManageTags]);
+  // Keyboard Shortcuts
+  useKeyboardShortcut("cmd+k", () => searchInputRef.current?.focus());
+  useKeyboardShortcut("/", () => searchInputRef.current?.focus());
+  useKeyboardShortcut("alt+n", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  useKeyboardShortcut("?", () => setShowShortcuts((v) => !v));
+  useKeyboardShortcut("escape", () => {
+    if (showShortcuts) setShowShortcuts(false);
+    if (showNewTag) setShowNewTag(false);
+    if (showManageTags) setShowManageTags(false);
+  });
 
   return (
     <div className={styles.page}>

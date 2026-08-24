@@ -1,0 +1,106 @@
+.warnBox {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.warnIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.warnIconWarning {
+  background: rgba(234, 179, 8, 0.12);
+  color: #eab308;
+}
+
+.title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.description {
+  font-size: 0.82rem;
+  color: var(--foreground-muted);
+  line-height: 1.45;
+  margin-bottom: 1.25rem;
+}
+
+.errorText {
+  font-size: 0.8rem;
+  color: #ef4444;
+  margin-bottom: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius-sm);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.btnGhost {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  color: var(--foreground-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.btnGhost:hover {
+  color: var(--foreground);
+  background: var(--hover-bg);
+}
+
+.btnPrimary {
+  padding: 0.45rem 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #ffffff;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btnDanger {
+  padding: 0.45rem 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #ffffff;
+  background: #ef4444;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.btnDanger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.btnPrimary:disabled,
+.btnDanger:disabled,
+.btnGhost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

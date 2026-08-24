@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
@@ -12,9 +12,14 @@ import {
   Copy,
   Download,
   Check,
-  AlertTriangle,
 } from "lucide-react";
+import { toast } from "sonner";
+import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { RecordingItem } from "@/lib/recordings/types";
+import { DEFAULT_TAG_COLOR } from "@/lib/recordings/constants";
+import { exportNoteAsMarkdown } from "@/lib/utils/export";
+import { formatRelativeDate } from "@/lib/utils/format";
 import styles from "./TagGroup.module.css";
 
 const PAGE_SIZE = 10;
@@ -32,21 +37,6 @@ interface TagGroupProps {
   onNoteChanged?: () => void;
   onRename?: () => void;
   onDelete?: () => void;
-}
-
-function formatDate(isoString: string): string {
-  try {
-    const date = new Date(isoString);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-
-    if (isToday) {
-      return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    }
-    return date.toLocaleDateString([], { month: "short", day: "numeric" });
-  } catch {
-    return isoString;
-  }
 }
 
 export default function TagGroup({
@@ -91,26 +81,31 @@ export default function TagGroup({
 
   const isUnclassified = tagId === null;
 
-  const loadPage = React.useCallback(async (nextPage: number, reset: boolean = false) => {
-    setIsLoading(true);
-    try {
-      const tagParam = isUnclassified ? "unclassified" : tagId;
-      const res = await fetch(
-        `/api/recordings?tagId=${encodeURIComponent(tagParam as string)}&page=${nextPage}&limit=${PAGE_SIZE}`
-      );
-      const data = await res.json();
-      if (res.ok && data.recordings) {
-        setRecordings((prev) => (reset || nextPage === 1 ? data.recordings : [...prev, ...data.recordings]));
-        setHasMore(Boolean(data.hasMore));
-        setPage(data.page || nextPage);
+  const loadPage = useCallback(
+    async (nextPage: number, reset: boolean = false) => {
+      setIsLoading(true);
+      try {
+        const tagParam = isUnclassified ? "unclassified" : tagId;
+        const res = await fetch(
+          `/api/recordings?tagId=${encodeURIComponent(tagParam as string)}&page=${nextPage}&limit=${PAGE_SIZE}`
+        );
+        const data = await res.json();
+        if (res.ok && data.recordings) {
+          setRecordings((prev) =>
+            reset || nextPage === 1 ? data.recordings : [...prev, ...data.recordings]
+          );
+          setHasMore(Boolean(data.hasMore));
+          setPage(data.page || nextPage);
+        }
+      } catch (err) {
+        console.error("Failed to load recordings for group:", err);
+      } finally {
+        setIsLoading(false);
+        setHasLoadedOnce(true);
       }
-    } catch (err) {
-      console.error("Failed to load recordings for group:", err);
-    } finally {
-      setIsLoading(false);
-      setHasLoadedOnce(true);
-    }
-  }, [isUnclassified, tagId]);
+    },
+    [isUnclassified, tagId]
+  );
 
   const handleToggle = () => {
     const opening = !isOpen;
@@ -126,13 +121,13 @@ export default function TagGroup({
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       loadPage(1, true);
     }
   }, [refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!groupMenuOpen && !activeMenuNoteId) return;
     const close = () => {
       setGroupMenuOpen(false);
@@ -150,9 +145,11 @@ export default function TagGroup({
       const text = data.recording?.text || rec.textPreview;
       await navigator.clipboard.writeText(text);
       setCopiedId(rec.id);
+      toast.success("Copied note to clipboard");
       setTimeout(() => setCopiedId(null), 1800);
     } catch (err) {
       console.error("Failed to copy transcript:", err);
+      toast.error("Failed to copy note.");
     }
   };
 
@@ -163,36 +160,16 @@ export default function TagGroup({
       const recording = data.recording;
       if (!recording) return;
 
-      const title = recording.title || rec.title || "transcript";
-      const sanitizedTitle = title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-      const dateStr = new Date(recording.createdAt).toISOString().split("T")[0];
-      const filename = `${sanitizedTitle}-${dateStr}.md`;
-
-      const markdownContent = [
-        `# ${title}`,
-        "",
-        `- **Date:** ${new Date(recording.createdAt).toLocaleString()}`,
-        `- **Model:** ${recording.model}`,
-        "",
-        "---",
-        "",
-        recording.text,
-      ].join("\n");
-
-      const blob = new Blob([markdownContent], { type: "text/markdown;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      exportNoteAsMarkdown({
+        title: recording.title || rec.title,
+        text: recording.text,
+        createdAt: recording.createdAt,
+        model: recording.model,
+      });
+      toast.success("Downloaded markdown");
     } catch (err) {
       console.error("Failed to export markdown:", err);
+      toast.error("Failed to export markdown.");
     }
   };
 
@@ -208,12 +185,18 @@ export default function TagGroup({
       if (res.ok) {
         setRenameNoteTarget(null);
         setRecordings((prev) =>
-          prev.map((r) => (r.id === renameNoteTarget.id ? { ...r, title: renameNoteTitle.trim() } : r))
+          prev.map((r) =>
+            r.id === renameNoteTarget.id ? { ...r, title: renameNoteTitle.trim() } : r
+          )
         );
+        toast.success("Note renamed.");
         onNoteChanged?.();
+      } else {
+        toast.error("Failed to rename note.");
       }
     } catch (err) {
       console.error("Failed to rename note:", err);
+      toast.error("Failed to rename note.");
     } finally {
       setIsRenaming(false);
     }
@@ -229,10 +212,14 @@ export default function TagGroup({
       if (res.ok) {
         setDeleteNoteTarget(null);
         setRecordings((prev) => prev.filter((r) => r.id !== deleteNoteTarget.id));
+        toast.success("Note deleted.");
         onNoteChanged?.();
+      } else {
+        toast.error("Failed to delete note.");
       }
     } catch (err) {
       console.error("Failed to delete note:", err);
+      toast.error("Failed to delete note.");
     } finally {
       setIsDeleting(false);
     }
@@ -248,12 +235,18 @@ export default function TagGroup({
       const data = await res.json();
       if (res.ok && data.title) {
         setRecordings((prev) =>
-          prev.map((r) => (r.id === rec.id ? { ...r, title: data.title, isClassified: true } : r))
+          prev.map((r) =>
+            r.id === rec.id ? { ...r, title: data.title, isClassified: true } : r
+          )
         );
+        toast.success("Note classified.");
         onNoteChanged?.();
+      } else {
+        toast.error(data.error || "Failed to classify note.");
       }
     } catch (err) {
       console.error("Failed to classify note:", err);
+      toast.error("Failed to classify note.");
     } finally {
       setIsClassifyingId(null);
     }
@@ -286,9 +279,17 @@ export default function TagGroup({
           />
           <span
             className={styles.dot}
-            style={{ background: isUnclassified ? "#71717a" : color || "#71717a" }}
+            style={{
+              background: isUnclassified
+                ? DEFAULT_TAG_COLOR
+                : color || DEFAULT_TAG_COLOR,
+            }}
           />
-          <span className={`${styles.groupName} ${isUnclassified ? styles.groupNameUnclassified : ""}`}>
+          <span
+            className={`${styles.groupName} ${
+              isUnclassified ? styles.groupNameUnclassified : ""
+            }`}
+          >
             {name}
           </span>
           {description && <span className={styles.groupDescription}>{description}</span>}
@@ -381,7 +382,7 @@ export default function TagGroup({
                       </div>
                       <div className={styles.rowPreview}>{rec.textPreview || "Empty note"}</div>
                     </div>
-                    <span className={styles.rowDate}>{formatDate(rec.createdAt)}</span>
+                    <span className={styles.rowDate}>{formatRelativeDate(rec.createdAt)}</span>
                   </Link>
 
                   {/* 3-Dots Action Menu on each note row */}
@@ -497,101 +498,67 @@ export default function TagGroup({
         </div>
       )}
 
-      {/* Inline Rename Note Modal */}
+      {/* Rename Note Modal */}
       {renameNoteTarget && (
-        <div className={styles.modalBackdrop} onClick={() => setRenameNoteTarget(null)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h3 className={styles.modalTitle}>Rename Note</h3>
-            <div className={styles.field}>
-              <label className={styles.label}>Title</label>
-              <input
-                type="text"
-                className={styles.input}
-                value={renameNoteTitle}
-                onChange={(e) => setRenameNoteTitle(e.target.value)}
-                placeholder="Note title..."
-                autoFocus
-              />
-            </div>
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.actionBtn}
-                onClick={() => setRenameNoteTarget(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={`${styles.actionBtn} ${styles.primaryBtn}`}
-                onClick={handleRenameNoteSubmit}
-                disabled={isRenaming || !renameNoteTitle.trim()}
-              >
-                {isRenaming ? "Saving..." : "Save"}
-              </button>
-            </div>
+        <Modal title="Rename Note" onClose={() => setRenameNoteTarget(null)}>
+          <div className={styles.field}>
+            <label className={styles.label}>Title</label>
+            <input
+              type="text"
+              className={styles.input}
+              value={renameNoteTitle}
+              onChange={(e) => setRenameNoteTitle(e.target.value)}
+              placeholder="Note title..."
+              autoFocus
+            />
           </div>
-        </div>
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={() => setRenameNoteTarget(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={`${styles.actionBtn} ${styles.primaryBtn}`}
+              onClick={handleRenameNoteSubmit}
+              disabled={isRenaming || !renameNoteTitle.trim()}
+            >
+              {isRenaming ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </Modal>
       )}
 
       {/* Delete Note Confirmation Modal */}
       {deleteNoteTarget && (
-        <div className={styles.modalBackdrop} onClick={() => setDeleteNoteTarget(null)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h3 className={styles.modalTitle}>Delete Note</h3>
-            <p className={styles.modalText}>
+        <ConfirmDialog
+          title="Delete Note"
+          description={
+            <>
               Are you sure you want to delete <strong>{deleteNoteTarget.title || deleteNoteTarget.id}</strong>?
-            </p>
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.actionBtn}
-                onClick={() => setDeleteNoteTarget(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={`${styles.actionBtn} ${styles.dangerBtn}`}
-                onClick={handleDeleteNoteSubmit}
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          confirmText="Delete"
+          variant="danger"
+          isLoading={isDeleting}
+          onConfirm={handleDeleteNoteSubmit}
+          onCancel={() => setDeleteNoteTarget(null)}
+        />
       )}
 
       {/* Already-Classified Warning Confirmation Modal */}
       {classifyWarningTarget && (
-        <div className={styles.modalBackdrop} onClick={() => setClassifyWarningTarget(null)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.warnHeader}>
-              <AlertTriangle size={18} className={styles.warnIcon} />
-              <h3 className={styles.modalTitle}>Already Classified</h3>
-            </div>
-            <p className={styles.modalText}>
-              This note has already been classified. Classifying again will re-evaluate tags and update the title.
-            </p>
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.actionBtn}
-                onClick={() => setClassifyWarningTarget(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={`${styles.actionBtn} ${styles.primaryBtn}`}
-                onClick={() => runRowClassification(classifyWarningTarget)}
-              >
-                Classify Anyway
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Already Classified"
+          description="This note has already been classified. Classifying again will re-evaluate tags and update the title."
+          confirmText="Classify Anyway"
+          variant="warning"
+          onConfirm={() => runRowClassification(classifyWarningTarget)}
+          onCancel={() => setClassifyWarningTarget(null)}
+        />
       )}
     </div>
   );
