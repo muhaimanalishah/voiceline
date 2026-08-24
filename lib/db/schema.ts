@@ -16,7 +16,7 @@ export const tags = pgTable("tags", {
 
 export const recordings = pgTable("recordings", {
   id: text("id").primaryKey(),
-  tagId: text("tag_id").notNull().references(() => tags.id, {onDelete: "set null"}),
+  tagId: text("tag_id").references(() => tags.id, { onDelete: "set null" }),
   title: text("title"),
   transcript: text("transcript").notNull(),
   rawTranscript: text("raw_transcript").notNull(),
@@ -36,5 +36,3 @@ export type NewTagRow = typeof tags.$inferInsert;
 
 export type RecordingRow = typeof recordings.$inferSelect;
 export type NewRecordingRow = typeof recordings.$inferInsert;
-
-

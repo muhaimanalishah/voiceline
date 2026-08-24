@@ -7,32 +7,32 @@ import {
   PaginationOptions,
   PaginatedRecordings,
   NewRecordingInput,
+  TagItem,
+  NewTagInput,
 } from "./types";
 
-export class DrizzleRecordingStore implements RecordingStore {
-  private getDb() {
-    if (!db) {
-      throw new Error(
-        "DATABASE_URL is not configured or PostgreSQL connection failed."
-      );
-    }
-    return db;
+function getDatabase() {
+  if (!db) {
+    throw new Error(
+      "DATABASE_URL is not configured or PostgreSQL connection failed."
+    );
   }
+  return db;
+}
 
+export class DrizzleRecordingStore implements RecordingStore {
   async getAllRecordings(options?: PaginationOptions): Promise<PaginatedRecordings> {
     const page = Math.max(1, options?.page || 1);
     const limit = Math.max(1, Math.min(100, options?.limit || 15));
     const offset = (page - 1) * limit;
 
-    const database = this.getDb();
+    const database = getDatabase();
 
-    // Count total recordings
     const countResult = await database
       .select({ total: sql<number>`count(*)::int` })
       .from(schema.recordings);
     const total = countResult[0]?.total || 0;
 
-    // Select paginated items ordered newest first
     const rows = await database
       .select()
       .from(schema.recordings)
@@ -50,6 +50,7 @@ export class DrizzleRecordingStore implements RecordingStore {
 
       return {
         id: row.id,
+        tagId: row.tagId ?? null,
         title: row.title || row.id,
         createdAt: row.createdAt,
         textPreview,
@@ -71,7 +72,7 @@ export class DrizzleRecordingStore implements RecordingStore {
   }
 
   async getRecordingById(id: string): Promise<RecordingDetail | null> {
-    const database = this.getDb();
+    const database = getDatabase();
     const rows = await database
       .select()
       .from(schema.recordings)
@@ -86,6 +87,7 @@ export class DrizzleRecordingStore implements RecordingStore {
 
     return {
       id: row.id,
+      tagId: row.tagId ?? null,
       title: row.title || row.id,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -106,9 +108,9 @@ export class DrizzleRecordingStore implements RecordingStore {
 
   async updateRecording(
     id: string,
-    updates: { text?: string; title?: string }
+    updates: { text?: string; title?: string; tagId?: string | null }
   ): Promise<boolean> {
-    const database = this.getDb();
+    const database = getDatabase();
     const updateData: Record<string, unknown> = {
       updatedAt: new Date().toISOString(),
     };
@@ -117,6 +119,9 @@ export class DrizzleRecordingStore implements RecordingStore {
     }
     if (updates.title !== undefined) {
       updateData.title = updates.title;
+    }
+    if (updates.tagId !== undefined) {
+      updateData.tagId = updates.tagId;
     }
 
     await database
@@ -128,7 +133,7 @@ export class DrizzleRecordingStore implements RecordingStore {
   }
 
   async resetToRawTranscript(id: string): Promise<boolean> {
-    const database = this.getDb();
+    const database = getDatabase();
     const existing = await database
       .select({ rawTranscript: schema.recordings.rawTranscript })
       .from(schema.recordings)
@@ -150,11 +155,12 @@ export class DrizzleRecordingStore implements RecordingStore {
   }
 
   async saveRecording(data: NewRecordingInput): Promise<boolean> {
-    const database = this.getDb();
+    const database = getDatabase();
     await database
       .insert(schema.recordings)
       .values({
         id: data.id,
+        tagId: data.tagId ?? null,
         title: data.title || data.id,
         transcript: data.transcript,
         rawTranscript: data.rawTranscript,
@@ -168,6 +174,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         set: {
           transcript: data.transcript,
           title: data.title || data.id,
+          tagId: data.tagId ?? null,
           updatedAt: new Date().toISOString(),
         },
       });
@@ -176,14 +183,38 @@ export class DrizzleRecordingStore implements RecordingStore {
   }
 
   async deleteRecording(id: string): Promise<boolean> {
-    const database = this.getDb();
+    const database = getDatabase();
     await database
       .delete(schema.recordings)
       .where(eq(schema.recordings.id, id));
 
     return true;
   }
+
+  // --- Tag Methods ---
+
+  async getAllTags(): Promise<TagItem[]> {
+    const database = getDatabase();
+    return await database
+      .select()
+      .from(schema.tags)
+      .orderBy(schema.tags.createdAt);
+  }
+
+  async createTag(data: NewTagInput): Promise<TagItem> {
+    const database = getDatabase();
+    const [created] = await database
+      .insert(schema.tags)
+      .values(data)
+      .returning();
+    return created;
+  }
+
+  async deleteTag(id: string): Promise<boolean> {
+    const database = getDatabase();
+    await database.delete(schema.tags).where(eq(schema.tags.id, id));
+    return true;
+  }
 }
 
 export const drizzleRecordingStore = new DrizzleRecordingStore();
-

@@ -5,6 +5,8 @@ import {
   PaginationOptions,
   PaginatedRecordings,
   NewRecordingInput,
+  TagItem,
+  NewTagInput,
 } from "./types";
 import { drizzleRecordingStore } from "./drizzle-store";
 
@@ -15,7 +17,10 @@ export type {
   PaginationOptions,
   PaginatedRecordings,
   NewRecordingInput,
+  TagItem,
+  NewTagInput,
 };
+
 
 export { drizzleRecordingStore };
 

@@ -1,5 +1,22 @@
+export interface TagItem {
+  id: string;
+  name: string;
+  description: string;
+  color?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewTagInput {
+  id: string;
+  name: string;
+  description: string;
+  color?: string | null;
+}
+
 export interface RecordingItem {
   id: string;
+  tagId?: string | null;
   title?: string;
   createdAt: string;
   textPreview: string;
@@ -10,6 +27,7 @@ export interface RecordingItem {
 
 export interface RecordingDetail {
   id: string;
+  tagId?: string | null;
   title?: string;
   createdAt: string;
   updatedAt?: string;
@@ -34,6 +52,7 @@ export interface PaginatedRecordings {
 
 export interface NewRecordingInput {
   id: string;
+  tagId?: string | null;
   title?: string;
   transcript: string;
   rawTranscript: string;
@@ -46,9 +65,16 @@ export interface RecordingStore {
   getAllRecordings(options?: PaginationOptions): Promise<PaginatedRecordings>;
   getRecordingById(id: string): Promise<RecordingDetail | null>;
   updateTranscription(id: string, newText: string, newTitle?: string): Promise<boolean>;
-  updateRecording?(id: string, updates: { text?: string; title?: string }): Promise<boolean>;
+  updateRecording?(
+    id: string,
+    updates: { text?: string; title?: string; tagId?: string | null }
+  ): Promise<boolean>;
   resetToRawTranscript?(id: string): Promise<boolean>;
   saveRecording?(data: NewRecordingInput): Promise<boolean>;
   deleteRecording(id: string): Promise<boolean>;
+  getAllTags?(): Promise<TagItem[]>;
+  createTag?(data: NewTagInput): Promise<TagItem>;
+  deleteTag?(id: string): Promise<boolean>;
 }
+
 
