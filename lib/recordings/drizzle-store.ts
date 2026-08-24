@@ -57,6 +57,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         title: row.title || row.id,
         createdAt: row.createdAt,
         textPreview,
+        summary: row.summary ? (() => { try { return JSON.parse(row.summary); } catch { return null; } })() : null,
         model: row.modelUsed,
         hasTranscript: Boolean(row.transcript),
         isClassified: Boolean(row.isClassified),
@@ -117,6 +118,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         title: row.title || row.id,
         createdAt: row.createdAt,
         textPreview,
+        summary: row.summary ? (() => { try { return JSON.parse(row.summary); } catch { return null; } })() : null,
         model: row.modelUsed,
         hasTranscript: Boolean(row.transcript),
         isClassified: Boolean(row.isClassified),
@@ -157,6 +159,7 @@ export class DrizzleRecordingStore implements RecordingStore {
       updatedAt: row.updatedAt,
       text: row.transcript,
       rawTranscript: row.rawTranscript,
+      summary: row.summary ? (() => { try { return JSON.parse(row.summary); } catch { return null; } })() : null,
       isClassified: Boolean(row.isClassified),
       model: row.modelUsed,
       duration: row.duration ?? null,
@@ -165,7 +168,13 @@ export class DrizzleRecordingStore implements RecordingStore {
 
   async updateRecording(
     id: string,
-    updates: { text?: string; title?: string; tagId?: string | null; isClassified?: boolean }
+    updates: {
+      text?: string;
+      title?: string;
+      tagId?: string | null;
+      summary?: string[] | null;
+      isClassified?: boolean;
+    }
   ): Promise<boolean> {
     const database = getDatabase();
     const updateData: Record<string, unknown> = {
@@ -179,6 +188,9 @@ export class DrizzleRecordingStore implements RecordingStore {
     }
     if (updates.tagId !== undefined) {
       updateData.tagId = updates.tagId;
+    }
+    if (updates.summary !== undefined) {
+      updateData.summary = updates.summary ? JSON.stringify(updates.summary) : null;
     }
     if (updates.isClassified !== undefined) {
       updateData.isClassified = updates.isClassified;
@@ -224,6 +236,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         title: data.title || data.id,
         transcript: data.transcript,
         rawTranscript: data.rawTranscript,
+        summary: data.summary ? JSON.stringify(data.summary) : null,
         isClassified: data.isClassified ?? false,
         modelUsed: data.modelUsed || "gpt-4o-mini-transcribe",
         duration: data.duration ?? null,
@@ -236,6 +249,7 @@ export class DrizzleRecordingStore implements RecordingStore {
           transcript: data.transcript,
           title: data.title || data.id,
           tagId: data.tagId ?? null,
+          summary: data.summary ? JSON.stringify(data.summary) : null,
           isClassified: data.isClassified ?? false,
           updatedAt: new Date().toISOString(),
         },

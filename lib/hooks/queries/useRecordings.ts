@@ -3,7 +3,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { RecordingItem, PaginatedRecordings } from "@/lib/recordings/types";
+import { PaginatedRecordings } from "@/lib/recordings/types";
 import { queryKeys } from "@/lib/query/keys";
 
 const PAGE_SIZE = 10;

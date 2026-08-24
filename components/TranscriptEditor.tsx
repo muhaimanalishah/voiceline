@@ -50,6 +50,9 @@ export default function TranscriptEditor({
   const [currentTagId, setCurrentTagId] = useState<string | null>(
     recording.tagId ?? null
   );
+  const [summary, setSummary] = useState<string[] | null>(
+    recording.summary ?? null
+  );
   const [isClassified, setIsClassified] = useState(Boolean(recording.isClassified));
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -151,6 +154,9 @@ export default function TranscriptEditor({
       if (data.tagId !== undefined) {
         setCurrentTagId(data.tagId);
       }
+      if (Array.isArray(data.summary)) {
+        setSummary(data.summary);
+      }
       await onUpdate(recording.id, text, generatedTitle);
       toast.success("Classified & title updated");
     } catch (err: unknown) {
@@ -211,6 +217,7 @@ export default function TranscriptEditor({
       text,
       createdAt: recording.createdAt,
       model: recording.model,
+      summary,
     });
     toast.success("Downloaded markdown");
   };
@@ -370,6 +377,23 @@ export default function TranscriptEditor({
 
         {/* Expansive Main Editor Area */}
         <div className={styles.editorArea}>
+          {/* Key Takeaways Summary Card */}
+          {summary && summary.length > 0 && (
+            <div className={styles.summaryCard}>
+              <div className={styles.summaryHeader}>
+                <Sparkles size={13} className={styles.summaryIcon} />
+                <span>Key Takeaways</span>
+              </div>
+              <ul className={styles.summaryList}>
+                {summary.map((point, idx) => (
+                  <li key={idx} className={styles.summaryItem}>
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <textarea
             className={styles.textarea}
             dir="auto"

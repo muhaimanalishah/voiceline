@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { zodResponseFormat } from "openai/helpers/zod";
 import { recordingStore } from "@/lib/recordings";
+import {
+  createClassificationSchema,
+  NoTagsClassificationSchema,
+} from "@/lib/validations/classification";
 
 interface RouteContext {
   params: Promise<{
@@ -45,9 +50,7 @@ export async function POST(
       );
     }
 
-    // Retrieve available tags from the database. If none exist, tagging is
-    // skipped entirely and the note is left unclassified (tagId: null) —
-    // this is a distinct state from being deliberately tagged "Others".
+    // Retrieve available tags from the database
     const availableTags = (await recordingStore.getAllTags()) || [];
     const hasTags = availableTags.length > 0;
 
@@ -63,62 +66,32 @@ export async function POST(
 
     const systemPrompt = hasTags
       ? [
-          "You are a helpful assistant that classifies voice notes.",
+          "You are a helpful assistant that classifies and summarizes voice notes.",
           "Analyze the transcript and generate:",
           "1. A concise, descriptive title between 3 to 6 words maximum.",
-          "2. The id of the single most appropriate tag from the list below. You must return one of these exact ids, never a new tag name.",
+          "2. 2 to 4 concise bullet summary points capturing key takeaways, decisions, or action items.",
+          "3. The id of the single most appropriate tag from the list below. You must return one of these exact ids.",
           "",
           "Available tags:",
           tagListPrompt,
           "",
-          "Guidance on picking a tag: always prefer the most specific tag whose description genuinely matches the content of the note. Only choose the tag named \"Others\" as a last resort, when the note truly does not fit any of the other tags.",
-          "",
-          'Return your response strictly as a JSON object with this structure: { "title": string, "tagId": string }',
+          'Guidance on picking a tag: always prefer the most specific tag whose description genuinely matches the content of the note. Only choose the tag named "Others" as a last resort, when the note truly does not fit any of the other tags.',
         ].join("\n")
       : [
-          "You are a helpful assistant that classifies voice notes.",
-          "Analyze the transcript and generate a concise, descriptive title between 3 to 6 words maximum.",
-          "",
-          'Return your response strictly as a JSON object with this structure: { "title": string }',
+          "You are a helpful assistant that classifies and summarizes voice notes.",
+          "Analyze the transcript and generate:",
+          "1. A concise, descriptive title between 3 to 6 words maximum.",
+          "2. 2 to 4 concise bullet summary points capturing key takeaways, decisions, or action items.",
         ].join("\n");
+
+    const tagIds = availableTags.map((t) => t.id) as [string, ...string[]];
+    const schema = hasTags
+      ? createClassificationSchema(tagIds)
+      : NoTagsClassificationSchema;
 
     const completion = await openai.chat.completions.create({
       model: processingModel,
-      response_format: hasTags
-        ? {
-            type: "json_schema",
-            json_schema: {
-              name: "note_classification",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  title: { type: "string" },
-                  tagId: {
-                    type: "string",
-                    enum: availableTags.map((t) => t.id),
-                  },
-                },
-                required: ["title", "tagId"],
-                additionalProperties: false,
-              },
-            },
-          }
-        : {
-            type: "json_schema",
-            json_schema: {
-              name: "note_title",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  title: { type: "string" },
-                },
-                required: ["title"],
-                additionalProperties: false,
-              },
-            },
-          },
+      response_format: zodResponseFormat(schema, "note_classification"),
       messages: [
         {
           role: "system",
@@ -136,32 +109,26 @@ export async function POST(
       throw new Error("No response from AI model.");
     }
 
-    let parsedTitle = "";
-    let parsedTagId = "";
-    try {
-      const parsed = JSON.parse(responseContent);
-      parsedTitle = typeof parsed.title === "string" ? parsed.title.trim() : "";
-      parsedTagId = typeof parsed.tagId === "string" ? parsed.tagId.trim() : "";
-    } catch {
-      throw new Error("Failed to parse classification response from AI.");
+    const rawParsed = JSON.parse(responseContent);
+    const parsed = schema.parse(rawParsed);
+    if (!parsed || !parsed.title) {
+      throw new Error("Failed to generate classification from AI.");
     }
 
-    if (!parsedTitle) {
-      throw new Error("Generated title was empty.");
-    }
+    const parsedTitle = parsed.title.trim();
+    const parsedTagId = "tagId" in parsed ? (parsed.tagId as string) : null;
+    const parsedSummary = Array.isArray(parsed.summary) ? parsed.summary : [];
 
     let matchedTag: { id: string; name: string } | null = null;
-    if (hasTags) {
+    if (hasTags && parsedTagId) {
       matchedTag = availableTags.find((t) => t.id === parsedTagId) || null;
-      if (!matchedTag) {
-        throw new Error(`AI returned an unrecognized tag id: "${parsedTagId}".`);
-      }
     }
 
-    // Update note title, tagId (null when unclassified), and isClassified flag in PostgreSQL
+    // Update note title, tagId, summary, and isClassified flag in PostgreSQL
     await recordingStore.updateRecording(id, {
       title: parsedTitle,
       tagId: matchedTag?.id ?? null,
+      summary: parsedSummary,
       isClassified: true,
     });
     const updatedNote = await recordingStore.getRecordingById(id);
@@ -172,6 +139,7 @@ export async function POST(
       title: parsedTitle,
       tagId: matchedTag?.id ?? null,
       tag: matchedTag?.name ?? null,
+      summary: parsedSummary,
       isClassified: true,
       updatedAt: updatedNote?.updatedAt || new Date().toISOString(),
     });
@@ -185,5 +153,3 @@ export async function POST(
     );
   }
 }
-
-

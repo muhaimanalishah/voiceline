@@ -3,13 +3,14 @@ export interface ExportNoteOptions {
   text: string;
   createdAt: string;
   model?: string | null;
+  summary?: string[] | null;
 }
 
 /**
  * Exports a note transcript as a formatted Markdown file download.
  */
 export function exportNoteAsMarkdown(options: ExportNoteOptions): void {
-  const { title, text, createdAt, model } = options;
+  const { title, text, createdAt, model, summary } = options;
   const displayTitle = title || "Untitled Note";
 
   const sanitizedTitle = displayTitle
@@ -20,6 +21,11 @@ export function exportNoteAsMarkdown(options: ExportNoteOptions): void {
   const dateStr = new Date(createdAt).toISOString().split("T")[0];
   const filename = `${sanitizedTitle}-${dateStr}.md`;
 
+  const summarySection =
+    summary && summary.length > 0
+      ? ["", "## Key Takeaways", ...summary.map((pt) => `- ${pt}`), ""]
+      : [];
+
   const markdownContent = [
     `# ${displayTitle}`,
     "",
@@ -27,6 +33,9 @@ export function exportNoteAsMarkdown(options: ExportNoteOptions): void {
     model ? `- **Model:** ${model}` : null,
     "",
     "---",
+    ...summarySection,
+    "",
+    "## Transcript",
     "",
     text,
   ]

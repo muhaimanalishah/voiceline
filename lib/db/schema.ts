@@ -20,6 +20,7 @@ export const recordings = pgTable("recordings", {
   title: text("title"),
   transcript: text("transcript").notNull(),
   rawTranscript: text("raw_transcript").notNull(),
+  summary: text("summary"),
   isClassified: boolean("is_classified").notNull().default(false),
   modelUsed: text("model_used").notNull().default("gpt-4o-mini-transcribe"),
   duration: integer("duration"),
