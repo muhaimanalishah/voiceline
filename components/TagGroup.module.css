@@ -4,7 +4,6 @@
   background: var(--surface);
   box-shadow: var(--shadow-sm);
   position: relative;
-  overflow: hidden;
 }
 
 .groupDropTarget {
@@ -219,6 +218,12 @@
   padding-right: 0.75rem;
   display: flex;
   align-items: center;
+  z-index: 5;
+}
+
+.rowWrapper:focus-within .rowActionsWrap,
+.rowWrapper:hover .rowActionsWrap {
+  z-index: 20;
 }
 
 .rowMenuBtn {
