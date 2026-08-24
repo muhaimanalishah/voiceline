@@ -279,15 +279,11 @@ export default function VoiceLineApp() {
           </div>
           <span className={styles.dividerDot}>•</span>
           <div className={styles.shortcutItem}>
-            <span className={styles.kbd}>Space</span>
-            <span>Play/Pause</span>
-          </div>
-          <span className={styles.dividerDot}>•</span>
-          <div className={styles.shortcutItem}>
             <span className={styles.kbd}>Alt+C</span>
             <span>Copy</span>
           </div>
         </div>
+
       </main>
     </div>
   );

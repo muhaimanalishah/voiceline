@@ -29,6 +29,8 @@
   justify-content: space-between;
   gap: 1.5rem;
   width: 100%;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border, #1f1f23);
 }
 
 .titleArea {
@@ -112,93 +114,7 @@
   color: #ef4444 !important;
 }
 
-/* Audio Player Section - Minimal Inline Control */
-.audioSection {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border, #1f1f23);
-  gap: 1rem;
-  flex-wrap: wrap;
-}
 
-.audioPlayer {
-  flex: 1;
-  min-width: 240px;
-  height: 34px;
-}
-
-.audioControlsLeft {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.lazyAudioBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  border-radius: 6px;
-  border: 1px solid var(--border, #1f1f23);
-  background: transparent;
-  color: var(--muted, #a1a1aa);
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-
-.lazyAudioBtn:hover {
-  color: var(--foreground, #ededed);
-  background: var(--hover-bg, #1a1a1e);
-  border-color: #2e2e36;
-}
-
-.audioDeletedBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  color: var(--muted, #71717a);
-  font-style: italic;
-}
-
-.audioControlsRight {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.speedGroup {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.speedBtn {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--muted, #71717a);
-  cursor: pointer;
-  transition: all 0.1s ease;
-}
-
-.speedBtn:hover {
-  color: var(--foreground, #ededed);
-  background: var(--hover-bg, #1a1a1e);
-}
-
-.speedBtnActive {
-  background: #27272a !important;
-  color: #ffffff !important;
-}
 
 /* Expansive Borderless Editor */
 .editorArea {

@@ -4,12 +4,7 @@ export interface RecordingItem {
   createdAt: string;
   textPreview: string;
   model: string;
-  audioFile: string;
-  audioUrl: string;
-  audioStatus?: "active" | "deleted";
-  audioKey?: string;
   hasTranscript: boolean;
-  size?: number;
   duration?: number | null;
 }
 
@@ -21,27 +16,7 @@ export interface RecordingDetail {
   text: string;
   rawTranscript?: string;
   model: string;
-  audioFile: string;
-  audioUrl: string;
-  audioStatus?: "active" | "deleted";
-  audioKey?: string;
-  duration: number | null;
-  size?: number;
-  transcriptionJsonUrl?: string;
-}
-
-export interface TranscriptionJsonData {
-  title?: string;
-  text: string;
-  rawTranscript?: string;
-  model: string;
-  createdAt: string;
-  audioFile: string;
-  audioStatus?: "active" | "deleted";
-  audioKey?: string;
   duration?: number | null;
-  updatedAt?: string;
-  [key: string]: unknown;
 }
 
 export interface PaginationOptions {
@@ -63,12 +38,7 @@ export interface NewRecordingInput {
   transcript: string;
   rawTranscript: string;
   modelUsed?: string;
-  audioKey?: string;
-  audioStatus?: "active" | "deleted";
-  audioUrl?: string;
-  audioFile?: string;
   duration?: number | null;
-  size?: number;
   createdAt?: string;
 }
 
@@ -77,8 +47,8 @@ export interface RecordingStore {
   getRecordingById(id: string): Promise<RecordingDetail | null>;
   updateTranscription(id: string, newText: string, newTitle?: string): Promise<boolean>;
   updateRecording?(id: string, updates: { text?: string; title?: string }): Promise<boolean>;
-  deleteAudioOnly?(id: string): Promise<boolean>;
   resetToRawTranscript?(id: string): Promise<boolean>;
   saveRecording?(data: NewRecordingInput): Promise<boolean>;
   deleteRecording(id: string): Promise<boolean>;
 }
+

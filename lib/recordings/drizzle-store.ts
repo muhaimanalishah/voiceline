@@ -54,12 +54,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         createdAt: row.createdAt,
         textPreview,
         model: row.modelUsed,
-        audioFile: row.audioFile || "audio.webm",
-        audioUrl: row.audioUrl || "",
-        audioStatus: (row.audioStatus as "active" | "deleted") || "active",
-        audioKey: row.audioKey || undefined,
         hasTranscript: Boolean(row.transcript),
-        size: row.size || 0,
         duration: row.duration ?? null,
       };
     });
@@ -97,13 +92,7 @@ export class DrizzleRecordingStore implements RecordingStore {
       text: row.transcript,
       rawTranscript: row.rawTranscript,
       model: row.modelUsed,
-      audioFile: row.audioFile || "audio.webm",
-      audioUrl: row.audioUrl || "",
-      audioStatus: (row.audioStatus as "active" | "deleted") || "active",
-      audioKey: row.audioKey || undefined,
       duration: row.duration ?? null,
-      size: row.size || 0,
-      transcriptionJsonUrl: undefined,
     };
   }
 
@@ -133,20 +122,6 @@ export class DrizzleRecordingStore implements RecordingStore {
     await database
       .update(schema.recordings)
       .set(updateData)
-      .where(eq(schema.recordings.id, id));
-
-    return true;
-  }
-
-  async deleteAudioOnly(id: string): Promise<boolean> {
-    const database = this.getDb();
-    await database
-      .update(schema.recordings)
-      .set({
-        audioStatus: "deleted",
-        audioUrl: "",
-        updatedAt: new Date().toISOString(),
-      })
       .where(eq(schema.recordings.id, id));
 
     return true;
@@ -184,12 +159,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         transcript: data.transcript,
         rawTranscript: data.rawTranscript,
         modelUsed: data.modelUsed || "gpt-4o-mini-transcribe",
-        audioKey: data.audioKey || `recordings/${data.id}/${data.audioFile || "audio.webm"}`,
-        audioStatus: data.audioStatus || "active",
-        audioUrl: data.audioUrl || "",
-        audioFile: data.audioFile || "audio.webm",
         duration: data.duration ?? null,
-        size: data.size || 0,
         createdAt: data.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
@@ -216,3 +186,4 @@ export class DrizzleRecordingStore implements RecordingStore {
 }
 
 export const drizzleRecordingStore = new DrizzleRecordingStore();
+

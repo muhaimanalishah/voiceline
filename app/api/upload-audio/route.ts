@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 import crypto from "crypto";
-import { r2RecordingStore } from "@/lib/recordings/r2-store";
-import { validateCloudEnv } from "@/lib/recordings";
+import OpenAI, { toFile } from "openai";
+import { drizzleRecordingStore } from "@/lib/recordings/drizzle-store";
+import { validateDatabaseEnv } from "@/lib/recordings";
 
 export async function POST(request: NextRequest) {
   try {
-    // Validate Cloud environment
-    const validation = validateCloudEnv();
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "OPENAI_API_KEY is not configured on the server." },
+        { status: 500 }
+      );
+    }
+
+    const validation = validateDatabaseEnv();
     if (!validation.valid) {
       return NextResponse.json(
         {
-          error: `Cloud storage is not configured. Missing environment variables: ${validation.missing.join(
+          error: `Database is not configured. Missing environment variables: ${validation.missing.join(
             ", "
           )}.`,
           missing: validation.missing,
@@ -38,59 +45,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine appropriate file extension based on MIME type or original name
     const mimeType = file.type || "audio/webm";
-    let extension = ".webm";
-    if (file.name && path.extname(file.name)) {
-      extension = path.extname(file.name);
-    } else if (mimeType.includes("mpeg") || mimeType.includes("mp3")) {
-      extension = ".mp3";
-    } else if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
-      extension = ".m4a";
-    } else if (mimeType.includes("aac")) {
-      extension = ".aac";
-    } else if (mimeType.includes("ogg")) {
-      extension = ".ogg";
-    } else if (mimeType.includes("wav")) {
-      extension = ".wav";
-    } else if (mimeType.includes("flac")) {
-      extension = ".flac";
-    } else if (mimeType.includes("webm")) {
-      extension = ".webm";
-    }
-
-    const uniqueId = crypto.randomUUID().slice(0, 8);
-    const timestamp = Date.now();
-    const folderId = `recording-${timestamp}-${uniqueId}`;
-    const filename = `audio${extension}`;
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Upload directly to Cloudflare R2
-    const audioUrl = await r2RecordingStore.saveAudioFile(
-      folderId,
-      filename,
-      buffer,
-      mimeType
-    );
+    const openai = new OpenAI({ apiKey });
+    const model =
+      process.env.OPENAI_TRANSCRIBE_MODEL ||
+      process.env.OPENAI_TRANSCRIPTION_MODEL ||
+      "gpt-4o-mini-transcribe";
+
+    const uniqueId = crypto.randomUUID().slice(0, 8);
+    const timestamp = Date.now();
+    const noteId = `note-${timestamp}-${uniqueId}`;
+
+    const filename = file.name || "recording.webm";
+    const openaiFile = await toFile(buffer, filename, {
+      type: mimeType,
+    });
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: openaiFile,
+      model: model,
+    });
+
+    const transcriptionText = transcription.text;
+    const createdAt = new Date().toISOString();
+    const defaultTitle = `Voice Note - ${new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })}`;
+
+    // Insert note directly into database
+    await drizzleRecordingStore.saveRecording({
+      id: noteId,
+      title: defaultTitle,
+      transcript: transcriptionText,
+      rawTranscript: transcriptionText,
+      modelUsed: model,
+      createdAt,
+    });
 
     return NextResponse.json({
       success: true,
-      folderId,
-      filename,
-      originalName: file.name || "voice-recording",
-      url: audioUrl,
-      size: file.size,
-      mimeType,
+      id: noteId,
+      folderId: noteId,
+      title: defaultTitle,
+      text: transcriptionText,
+      rawTranscript: transcriptionText,
+      model,
+      createdAt,
     });
   } catch (error) {
-    console.error("Audio upload failed:", error);
+    console.error("Audio upload and transcription failed:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to upload audio file.",
+        error: error instanceof Error ? error.message : "Failed to process audio.",
       },
       { status: 500 }
     );
   }
 }
+
