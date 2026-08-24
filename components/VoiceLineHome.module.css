@@ -120,6 +120,38 @@
   padding: 0.65rem;
 }
 
+.dragOverlayRow {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 0 0 12px var(--accent-glow);
+  padding: 0.7rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 260px;
+  max-width: 380px;
+  pointer-events: none;
+  cursor: grabbing;
+}
+
+.dragOverlayTitle {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dragOverlayPreview {
+  font-size: 0.74rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .groupsList {
   display: flex;
   flex-direction: column;

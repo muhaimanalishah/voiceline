@@ -40,6 +40,7 @@ export interface UpdateRecordingInput {
   id: string;
   title?: string;
   text?: string;
+  tagId?: string | null;
 }
 
 export function useUpdateRecordingMutation() {
@@ -60,6 +61,7 @@ export function useUpdateRecordingMutation() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.recordings.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tags.all });
       queryClient.invalidateQueries({
         queryKey: queryKeys.recordings.detail(variables.id),
       });

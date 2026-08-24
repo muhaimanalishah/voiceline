@@ -42,16 +42,16 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const body = await request.json();
-    const { text, title } = body;
+    const { text, title, tagId } = body;
 
-    if (text === undefined && title === undefined) {
+    if (text === undefined && title === undefined && tagId === undefined) {
       return NextResponse.json(
-        { error: "Request body must include 'text' or 'title' to update." },
+        { error: "Request body must include 'text', 'title', or 'tagId' to update." },
         { status: 400 }
       );
     }
 
-    const updated = await recordingStore.updateRecording(id, { text, title });
+    const updated = await recordingStore.updateRecording(id, { text, title, tagId });
 
     if (!updated) {
       return NextResponse.json(
@@ -65,6 +65,7 @@ export async function PATCH(
       id,
       text,
       title,
+      tagId,
     });
   } catch (error) {
     console.error("PATCH /api/recordings/[id] error:", error);

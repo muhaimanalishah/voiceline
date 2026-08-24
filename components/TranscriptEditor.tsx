@@ -10,19 +10,25 @@ import {
   Sparkles,
   CheckCircle2,
   ArrowLeft,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
   ConfirmDialog,
   Button,
-  Badge,
   Spinner,
+  TagDot,
+  DropdownMenu,
+  DropdownMenuItem,
 } from "@/components/ui";
 import { RecordingDetail } from "@/lib/recordings/types";
+import { DEFAULT_TAG_COLOR } from "@/lib/recordings/constants";
 import { exportNoteAsMarkdown } from "@/lib/utils/export";
 import { formatFullDate } from "@/lib/utils/format";
 import { useKeyboardShortcut } from "@/lib/hooks/useKeyboardShortcut";
+import { useTagsQuery } from "@/lib/hooks/queries/useTags";
+import { useUpdateRecordingMutation } from "@/lib/hooks/queries/useRecordings";
 import styles from "./TranscriptEditor.module.css";
 
 interface TranscriptEditorProps {
@@ -41,6 +47,9 @@ export default function TranscriptEditor({
   const [rawTranscript, setRawTranscript] = useState(
     recording.rawTranscript || recording.text
   );
+  const [currentTagId, setCurrentTagId] = useState<string | null>(
+    recording.tagId ?? null
+  );
   const [isClassified, setIsClassified] = useState(Boolean(recording.isClassified));
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -51,6 +60,11 @@ export default function TranscriptEditor({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showClassifyWarning, setShowClassifyWarning] = useState(false);
 
+  const { data: tagsData } = useTagsQuery();
+  const tags = tagsData?.tags || [];
+  const activeTag = tags.find((t) => t.id === currentTagId);
+
+  const updateMutation = useUpdateRecordingMutation();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const saveChanges = useCallback(
@@ -102,6 +116,22 @@ export default function TranscriptEditor({
     }
   };
 
+  const handleTagSelect = async (newTagId: string | null, newTagName: string) => {
+    if (newTagId === currentTagId) return;
+    setCurrentTagId(newTagId);
+    try {
+      await updateMutation.mutateAsync({
+        id: recording.id,
+        tagId: newTagId,
+      });
+      toast.success(`Tag changed to "${newTagName}"`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to change tag.";
+      toast.error(msg);
+      setCurrentTagId(recording.tagId ?? null);
+    }
+  };
+
   const runClassification = async () => {
     setIsClassifying(true);
     setShowClassifyWarning(false);
@@ -118,6 +148,9 @@ export default function TranscriptEditor({
       const generatedTitle = data.title;
       setTitle(generatedTitle);
       setIsClassified(true);
+      if (data.tagId !== undefined) {
+        setCurrentTagId(data.tagId);
+      }
       await onUpdate(recording.id, text, generatedTitle);
       toast.success("Classified & title updated");
     } catch (err: unknown) {
@@ -241,15 +274,46 @@ export default function TranscriptEditor({
             <div className={styles.metaRow}>
               <span>{formattedDate}</span>
               <span className={styles.metaDot}>•</span>
-              <Badge variant="default">{recording.model}</Badge>
-              {isClassified && (
-                <>
-                  <span className={styles.metaDot}>•</span>
-                  <Badge variant="success" dot>
-                    Classified
-                  </Badge>
-                </>
-              )}
+
+              {/* Interactive Tag Badge Dropdown Selector */}
+              <DropdownMenu
+                align="left"
+                trigger={
+                  <button
+                    type="button"
+                    className={styles.tagSelectorTrigger}
+                    title="Click to change tag"
+                  >
+                    <TagDot
+                      color={activeTag?.color || DEFAULT_TAG_COLOR}
+                      size="sm"
+                    />
+                    <span>{activeTag ? activeTag.name : "Unclassified"}</span>
+                    <ChevronDown size={11} className={styles.tagSelectorChevron} />
+                  </button>
+                }
+              >
+                <DropdownMenuItem
+                  icon={<TagDot color={DEFAULT_TAG_COLOR} size="sm" />}
+                  onClick={() => handleTagSelect(null, "Unclassified")}
+                >
+                  Unclassified {currentTagId === null ? "(Current)" : ""}
+                </DropdownMenuItem>
+                {tags.map((tag) => (
+                  <DropdownMenuItem
+                    key={tag.id}
+                    icon={
+                      <TagDot
+                        color={tag.color || DEFAULT_TAG_COLOR}
+                        size="sm"
+                      />
+                    }
+                    onClick={() => handleTagSelect(tag.id, tag.name)}
+                  >
+                    {tag.name} {tag.id === currentTagId ? "(Current)" : ""}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenu>
             </div>
           </div>
 

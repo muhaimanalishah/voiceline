@@ -4,6 +4,17 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Mic, Plus, Settings } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import { toast } from "sonner";
 import AudioRecorder from "./AudioRecorder";
 import TagGroup from "./TagGroup";
 import {
@@ -19,8 +30,9 @@ import {
   Kbd,
   Spinner,
 } from "@/components/ui";
-import { TagWithCount } from "@/lib/recordings/types";
+import { TagWithCount, RecordingItem } from "@/lib/recordings/types";
 import { useTagsQuery } from "@/lib/hooks/queries/useTags";
+import { useUpdateRecordingMutation } from "@/lib/hooks/queries/useRecordings";
 import { queryKeys } from "@/lib/query/keys";
 import { useKeyboardShortcut } from "@/lib/hooks/useKeyboardShortcut";
 import styles from "./VoiceLineHome.module.css";
@@ -29,6 +41,7 @@ export default function VoiceLineHome() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data, isLoading } = useTagsQuery();
+  const updateRecordingMutation = useUpdateRecordingMutation();
 
   const tags = data?.tags || [];
   const unclassifiedCount = data?.unclassifiedCount || 0;
@@ -40,12 +53,59 @@ export default function VoiceLineHome() {
   const [renameTarget, setRenameTarget] = useState<TagWithCount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TagWithCount | null>(null);
 
+  // Active item during drag & drop
+  const [activeDragNote, setActiveDragNote] = useState<RecordingItem | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleRecordingCreated = (createdId: string) => {
     queryClient.invalidateQueries({ queryKey: queryKeys.recordings.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.tags.all });
     router.push(`/notes/${encodeURIComponent(createdId)}`);
+  };
+
+  // Drag and Drop handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    const note = event.active.data.current?.note as RecordingItem | undefined;
+    if (note) {
+      setActiveDragNote(note);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragNote(null);
+
+    if (!over) return;
+
+    const note = active.data.current?.note as RecordingItem | undefined;
+    const sourceTagId = active.data.current?.sourceTagId as string | null | undefined;
+    const targetTagId = over.data.current?.tagId as string | null | undefined;
+    const targetTagName =
+      (over.data.current?.tagName as string) ||
+      (targetTagId === null ? "Unclassified" : "tag");
+
+    if (!note || targetTagId === undefined) return;
+    if (sourceTagId === targetTagId) return;
+
+    try {
+      await updateRecordingMutation.mutateAsync({
+        id: note.id,
+        tagId: targetTagId,
+      });
+      toast.success(`Moved note to "${targetTagName}"`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to move note.";
+      toast.error(msg);
+    }
   };
 
   // Keyboard Shortcuts
@@ -102,30 +162,50 @@ export default function VoiceLineHome() {
             <Spinner size="xl" />
           </div>
         ) : (
-          <div className={styles.groupsList}>
-            <TagGroup
-              tagId={null}
-              name="Unclassified"
-              description="no tag assigned yet"
-              totalCount={unclassifiedCount}
-              defaultOpen
-              searchQuery={searchQuery}
-            />
-
-            {tags.map((tag) => (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className={styles.groupsList}>
               <TagGroup
-                key={tag.id}
-                tagId={tag.id}
-                name={tag.name}
-                description={tag.description}
-                color={tag.color}
-                totalCount={tag.recordingCount}
+                tagId={null}
+                name="Unclassified"
+                description="no tag assigned yet"
+                totalCount={unclassifiedCount}
+                defaultOpen
                 searchQuery={searchQuery}
-                onRename={() => setRenameTarget(tag)}
-                onDelete={() => setDeleteTarget(tag)}
               />
-            ))}
-          </div>
+
+              {tags.map((tag) => (
+                <TagGroup
+                  key={tag.id}
+                  tagId={tag.id}
+                  name={tag.name}
+                  description={tag.description}
+                  color={tag.color}
+                  totalCount={tag.recordingCount}
+                  searchQuery={searchQuery}
+                  onRename={() => setRenameTarget(tag)}
+                  onDelete={() => setDeleteTarget(tag)}
+                />
+              ))}
+            </div>
+
+            <DragOverlay>
+              {activeDragNote ? (
+                <div className={styles.dragOverlayRow}>
+                  <div className={styles.dragOverlayTitle}>
+                    {activeDragNote.title || "Untitled Note"}
+                  </div>
+                  <div className={styles.dragOverlayPreview}>
+                    {activeDragNote.textPreview || "Empty note"}
+                  </div>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
 
         <div className={styles.shortcutBar} onClick={() => setShowShortcuts(true)}>

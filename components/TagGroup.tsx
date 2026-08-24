@@ -11,8 +11,10 @@ import {
   Copy,
   Download,
   Check,
+  GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
 import {
   Modal,
   ConfirmDialog,
@@ -29,6 +31,7 @@ import { RecordingItem } from "@/lib/recordings/types";
 import { DEFAULT_TAG_COLOR } from "@/lib/recordings/constants";
 import { exportNoteAsMarkdown } from "@/lib/utils/export";
 import { formatRelativeDate } from "@/lib/utils/format";
+import { useTagsQuery } from "@/lib/hooks/queries/useTags";
 import {
   useRecordingsByTagInfiniteQuery,
   useUpdateRecordingMutation,
@@ -48,6 +51,129 @@ interface TagGroupProps {
   searchQuery?: string;
   onRename?: () => void;
   onDelete?: () => void;
+}
+
+function DraggableNoteRow({
+  rec,
+  sourceTagId,
+  isClassifying,
+  isCopied,
+  onClassify,
+  onEdit,
+  onCopy,
+  onExport,
+  onDelete,
+}: {
+  rec: RecordingItem;
+  sourceTagId: string | null;
+  isClassifying: boolean;
+  isCopied: boolean;
+  onClassify: () => void;
+  onEdit: () => void;
+  onCopy: () => void;
+  onExport: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `note-${rec.id}`,
+    data: {
+      note: rec,
+      sourceTagId,
+    },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${styles.rowWrapper} ${isDragging ? styles.rowDragging : ""}`}
+    >
+      {/* Left gutter drag handle */}
+      <button
+        type="button"
+        className={styles.dragHandle}
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to move note"
+        title="Drag to move to another tag"
+      >
+        <GripVertical size={13} />
+      </button>
+
+      <Link
+        href={`/notes/${encodeURIComponent(rec.id)}`}
+        className={styles.row}
+        onClick={(e) => {
+          if (isDragging) e.preventDefault();
+        }}
+      >
+        <div className={styles.rowMain}>
+          <div className={styles.rowTitleRow}>
+            <span className={styles.rowTitle}>{rec.title || "Untitled Note"}</span>
+          </div>
+          <div className={styles.rowPreview}>{rec.textPreview || "Empty note"}</div>
+        </div>
+        <span className={styles.rowDate}>{formatRelativeDate(rec.createdAt)}</span>
+      </Link>
+
+      {/* 3-Dots Action Menu on each note row */}
+      <div className={styles.rowActionsWrap}>
+        <DropdownMenu
+          trigger={
+            <button
+              type="button"
+              className={styles.rowMenuBtn}
+              aria-label="Note actions"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+          }
+        >
+          <DropdownMenuItem
+            icon={
+              isClassifying ? (
+                <Spinner size="xs" />
+              ) : (
+                <Sparkles size={12} />
+              )
+            }
+            disabled={isClassifying}
+            onClick={onClassify}
+          >
+            {isClassifying ? "Classifying..." : "Classify"}
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            icon={<Pencil size={12} />}
+            onClick={onEdit}
+          >
+            Edit
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            icon={isCopied ? <Check size={12} /> : <Copy size={12} />}
+            onClick={onCopy}
+          >
+            {isCopied ? "Copied" : "Copy"}
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            icon={<Download size={12} />}
+            onClick={onExport}
+          >
+            Export
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            icon={<Trash2 size={12} />}
+            variant="danger"
+            onClick={onDelete}
+          >
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
 }
 
 export default function TagGroup({
@@ -74,13 +200,27 @@ export default function TagGroup({
 
   const recordings = data?.pages.flatMap((page) => page.recordings) || [];
 
+  const { data: tagsData } = useTagsQuery();
+  const availableTags = tagsData?.tags || [];
+
   const updateMutation = useUpdateRecordingMutation();
   const deleteMutation = useDeleteRecordingMutation();
   const classifyMutation = useClassifyRecordingMutation();
 
+  // Droppable container setup for TagGroup
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+    id: `tag-${tagId ?? "unclassified"}`,
+    data: {
+      tagId,
+      tagName: name,
+    },
+  });
+
   // Dialog states
-  const [renameNoteTarget, setRenameNoteTarget] = useState<RecordingItem | null>(null);
-  const [renameNoteTitle, setRenameNoteTitle] = useState("");
+  const [editNoteTarget, setEditNoteTarget] = useState<RecordingItem | null>(null);
+  const [editNoteTitle, setEditNoteTitle] = useState("");
+  const [editNoteTagId, setEditNoteTagId] = useState<string | null>(null);
+
   const [deleteNoteTarget, setDeleteNoteTarget] = useState<RecordingItem | null>(null);
   const [classifyWarningTarget, setClassifyWarningTarget] = useState<RecordingItem | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -128,18 +268,26 @@ export default function TagGroup({
     }
   };
 
-  // Rename Note Submit
-  const handleRenameNoteSubmit = async () => {
-    if (!renameNoteTarget || !renameNoteTitle.trim()) return;
+  // Open Edit Note Modal
+  const handleOpenEditModal = (rec: RecordingItem) => {
+    setEditNoteTarget(rec);
+    setEditNoteTitle(rec.title || "");
+    setEditNoteTagId(tagId);
+  };
+
+  // Edit Note Submit
+  const handleEditNoteSubmit = async () => {
+    if (!editNoteTarget || !editNoteTitle.trim()) return;
     try {
       await updateMutation.mutateAsync({
-        id: renameNoteTarget.id,
-        title: renameNoteTitle.trim(),
+        id: editNoteTarget.id,
+        title: editNoteTitle.trim(),
+        tagId: editNoteTagId,
       });
-      setRenameNoteTarget(null);
-      toast.success("Note renamed.");
+      setEditNoteTarget(null);
+      toast.success("Note updated.");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to rename note.";
+      const msg = err instanceof Error ? err.message : "Failed to update note.";
       toast.error(msg);
     }
   };
@@ -177,6 +325,8 @@ export default function TagGroup({
     }
   };
 
+  const selectedEditTag = availableTags.find((t) => t.id === editNoteTagId);
+
   const query = searchQuery.trim().toLowerCase();
   const displayedRecordings = query
     ? recordings.filter(
@@ -187,7 +337,12 @@ export default function TagGroup({
     : recordings;
 
   return (
-    <div className={`${styles.group} ${isUnclassified ? styles.groupUnclassified : ""}`}>
+    <div
+      ref={setDroppableRef}
+      className={`${styles.group} ${isUnclassified ? styles.groupUnclassified : ""} ${
+        isOver ? styles.groupDropTarget : ""
+      }`}
+    >
       <div className={styles.groupHeader}>
         <button type="button" className={styles.headerLeft} onClick={handleToggle}>
           <ChevronDown
@@ -257,84 +412,18 @@ export default function TagGroup({
               const isCopied = copiedId === rec.id;
 
               return (
-                <div key={rec.id} className={styles.rowWrapper}>
-                  <Link
-                    href={`/notes/${encodeURIComponent(rec.id)}`}
-                    className={styles.row}
-                  >
-                    <div className={styles.rowMain}>
-                      <div className={styles.rowTitleRow}>
-                        <span className={styles.rowTitle}>{rec.title || "Untitled Note"}</span>
-                        {rec.isClassified && (
-                          <span className={styles.rowClassifiedDot} title="Classified" />
-                        )}
-                      </div>
-                      <div className={styles.rowPreview}>{rec.textPreview || "Empty note"}</div>
-                    </div>
-                    <span className={styles.rowDate}>{formatRelativeDate(rec.createdAt)}</span>
-                  </Link>
-
-                  {/* 3-Dots Action Menu on each note row */}
-                  <div className={styles.rowActionsWrap}>
-                    <DropdownMenu
-                      trigger={
-                        <button
-                          type="button"
-                          className={styles.rowMenuBtn}
-                          aria-label="Note actions"
-                        >
-                          <MoreHorizontal size={14} />
-                        </button>
-                      }
-                    >
-                      <DropdownMenuItem
-                        icon={
-                          isClassifying ? (
-                            <Spinner size="xs" />
-                          ) : (
-                            <Sparkles size={12} />
-                          )
-                        }
-                        disabled={isClassifying}
-                        onClick={() => handleClassifyNoteClick(rec)}
-                      >
-                        {isClassifying ? "Classifying..." : "Classify"}
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem
-                        icon={<Pencil size={12} />}
-                        onClick={() => {
-                          setRenameNoteTitle(rec.title || "");
-                          setRenameNoteTarget(rec);
-                        }}
-                      >
-                        Rename
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem
-                        icon={isCopied ? <Check size={12} /> : <Copy size={12} />}
-                        onClick={() => handleCopyNote(rec)}
-                      >
-                        {isCopied ? "Copied" : "Copy"}
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem
-                        icon={<Download size={12} />}
-                        onClick={() => handleExportNote(rec)}
-                      >
-                        Export
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem
-                        icon={<Trash2 size={12} />}
-                        variant="danger"
-                        onClick={() => setDeleteNoteTarget(rec)}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenu>
-                  </div>
-                </div>
+                <DraggableNoteRow
+                  key={rec.id}
+                  rec={rec}
+                  sourceTagId={tagId}
+                  isClassifying={isClassifying}
+                  isCopied={isCopied}
+                  onClassify={() => handleClassifyNoteClick(rec)}
+                  onEdit={() => handleOpenEditModal(rec)}
+                  onCopy={() => handleCopyNote(rec)}
+                  onExport={() => handleExportNote(rec)}
+                  onDelete={() => setDeleteNoteTarget(rec)}
+                />
               );
             })
           )}
@@ -363,26 +452,61 @@ export default function TagGroup({
         </div>
       )}
 
-      {/* Rename Note Modal */}
-      {renameNoteTarget && (
-        <Modal title="Rename Note" onClose={() => setRenameNoteTarget(null)}>
+      {/* Edit Note Modal (Name + Tag Dropdown) */}
+      {editNoteTarget && (
+        <Modal title="Edit Note" onClose={() => setEditNoteTarget(null)}>
           <FormField label="Title">
             <Input
-              value={renameNoteTitle}
-              onChange={(e) => setRenameNoteTitle(e.target.value)}
+              value={editNoteTitle}
+              onChange={(e) => setEditNoteTitle(e.target.value)}
               placeholder="Note title..."
               autoFocus
             />
           </FormField>
+
+          <FormField label="Tag">
+            <DropdownMenu
+              align="left"
+              trigger={
+                <button type="button" className={styles.tagSelectTrigger}>
+                  <div className={styles.tagSelectTriggerLeft}>
+                    <TagDot
+                      color={selectedEditTag?.color || DEFAULT_TAG_COLOR}
+                      size="sm"
+                    />
+                    <span>{selectedEditTag ? selectedEditTag.name : "Unclassified"}</span>
+                  </div>
+                  <ChevronDown size={13} color="var(--muted)" />
+                </button>
+              }
+            >
+              <DropdownMenuItem
+                icon={<TagDot color={DEFAULT_TAG_COLOR} size="sm" />}
+                onClick={() => setEditNoteTagId(null)}
+              >
+                Unclassified {editNoteTagId === null ? "✓" : ""}
+              </DropdownMenuItem>
+              {availableTags.map((t) => (
+                <DropdownMenuItem
+                  key={t.id}
+                  icon={<TagDot color={t.color || DEFAULT_TAG_COLOR} size="sm" />}
+                  onClick={() => setEditNoteTagId(t.id)}
+                >
+                  {t.name} {t.id === editNoteTagId ? "✓" : ""}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenu>
+          </FormField>
+
           <div className={styles.modalActions}>
-            <Button variant="ghost" onClick={() => setRenameNoteTarget(null)}>
+            <Button variant="ghost" onClick={() => setEditNoteTarget(null)}>
               Cancel
             </Button>
             <Button
               variant="primary"
-              onClick={handleRenameNoteSubmit}
+              onClick={handleEditNoteSubmit}
               isLoading={updateMutation.isPending}
-              disabled={!renameNoteTitle.trim()}
+              disabled={!editNoteTitle.trim()}
             >
               Save
             </Button>

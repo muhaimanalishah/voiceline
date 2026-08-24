@@ -3,12 +3,18 @@
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   position: relative;
 }
 
 .group:hover {
   border-color: var(--border-hover);
+}
+
+.groupDropTarget {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 18px var(--accent-glow) !important;
+  background: rgba(239, 68, 68, 0.04) !important;
 }
 
 .groupUnclassified {
@@ -190,6 +196,41 @@
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   transition: background 0.12s ease;
+  user-select: none;
+}
+
+.rowDragging {
+  opacity: 0.35;
+}
+
+.dragOverlayRow {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
+  padding: 0.65rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: 320px;
+  pointer-events: none;
+}
+
+.dragOverlayTitle {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dragOverlayPreview {
+  font-size: 0.74rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rowWrapper:last-child {
@@ -204,16 +245,70 @@
   opacity: 1;
 }
 
+.dragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0.35rem 0.75rem 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: grab;
+  opacity: 0.3;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.rowWrapper:hover .dragHandle {
+  opacity: 0.8;
+}
+
+.dragHandle:hover {
+  opacity: 1 !important;
+  color: var(--foreground);
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
 .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.25rem;
-  padding: 0.75rem 0.5rem 0.75rem 1.15rem;
+  padding: 0.75rem 0.5rem 0.75rem 0.35rem;
   flex: 1;
   min-width: 0;
   text-decoration: none;
   color: inherit;
+}
+
+.tagSelectTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.tagSelectTrigger:hover {
+  border-color: var(--border-hover);
+}
+
+.tagSelectTriggerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .rowMain {
