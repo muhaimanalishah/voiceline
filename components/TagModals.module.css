@@ -10,29 +10,6 @@
   margin-bottom: 0.35rem;
 }
 
-.input,
-.textarea {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 0.75rem;
-  font-size: 0.85rem;
-  color: var(--foreground);
-  outline: none;
-  font-family: inherit;
-  transition: border-color 0.15s ease;
-}
-
-.input:focus,
-.textarea:focus {
-  border-color: var(--border-focus);
-}
-
-.textarea {
-  resize: none;
-}
-
 .colorRow {
   display: flex;
   gap: 0.5rem;
@@ -45,16 +22,16 @@
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
-  transition: transform 0.12s ease, border-color 0.12s ease;
+  transition: opacity 0.12s ease;
 }
 
 .colorSwatch:hover {
-  transform: scale(1.1);
+  opacity: 0.85;
 }
 
 .colorSwatchActive {
   border-color: #ffffff;
-  box-shadow: 0 0 0 2px var(--surface-raised);
+  box-shadow: 0 0 0 2px var(--surface-overlay);
 }
 
 .presetList {
@@ -74,13 +51,12 @@
   font-size: 0.76rem;
   color: var(--foreground-muted);
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
   user-select: none;
 }
 
 .presetChip:hover {
   background: var(--hover-bg);
-  border-color: var(--border-hover);
   color: var(--foreground);
 }
 
@@ -104,44 +80,6 @@
   margin-top: 1.25rem;
 }
 
-.btnGhost {
-  padding: 0.45rem 0.85rem;
-  font-size: 0.82rem;
-  color: var(--foreground-muted);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-
-.btnGhost:hover {
-  color: var(--foreground);
-  background: var(--hover-bg);
-}
-
-.btnPrimary {
-  padding: 0.45rem 0.95rem;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: #ffffff;
-  background: var(--accent);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  box-shadow: 0 0 14px var(--accent-glow);
-  transition: all 0.12s ease;
-}
-
-.btnPrimary:hover:not(:disabled) {
-  background: #dc2626;
-}
-
-.btnPrimary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .errorText {
   font-size: 0.75rem;
   color: #f87171;
@@ -154,7 +92,7 @@
   gap: 0.6rem;
   padding: 0.55rem 0.65rem;
   border-radius: var(--radius-sm);
-  transition: background 0.1s ease;
+  transition: background-color 0.1s ease;
 }
 
 .tagListItem:hover {
@@ -200,7 +138,7 @@
   color: var(--foreground-muted);
   cursor: pointer;
   display: flex;
-  transition: all 0.1s ease;
+  transition: background-color 0.1s ease, color 0.1s ease;
 }
 
 .tagListIconBtn:hover {
@@ -209,9 +147,8 @@
 }
 
 .tagListIconBtnDanger:hover {
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.14);
   color: #f87171;
-  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .tagList {
@@ -231,17 +168,16 @@
   gap: 0.4rem;
   padding: 0.55rem;
   border-radius: var(--radius-sm);
-  border: 1px dashed var(--border-hover);
+  border: 1px dashed var(--border);
   background: transparent;
   color: var(--foreground-muted);
   font-size: 0.8rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .newTagBtn:hover {
   color: var(--foreground);
-  border-color: rgba(255, 255, 255, 0.3);
   background: var(--hover-bg);
 }
 
@@ -264,14 +200,4 @@
 .shortcutDesc {
   font-size: 0.8rem;
   color: var(--foreground-muted);
-}
-
-.shortcutKey {
-  font-family: ui-monospace, monospace;
-  font-size: 0.72rem;
-  color: var(--foreground);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-hover);
-  padding: 0.15rem 0.45rem;
-  border-radius: 4px;
 }

@@ -3,24 +3,20 @@
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   position: relative;
-}
-
-.group:hover {
-  border-color: var(--border-hover);
+  overflow: hidden;
 }
 
 .groupDropTarget {
   border-color: var(--accent) !important;
-  box-shadow: 0 0 18px var(--accent-glow) !important;
+  box-shadow: 0 0 16px var(--accent-glow) !important;
   background: rgba(239, 68, 68, 0.04) !important;
 }
 
 .groupUnclassified {
   border-style: dashed;
   border-color: var(--border);
-  background: rgba(18, 18, 21, 0.6);
+  background: var(--surface);
 }
 
 .groupHeader {
@@ -29,16 +25,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.7rem 0.95rem;
+  padding: 0.75rem 1rem;
   background: transparent;
   border: none;
-  cursor: pointer;
   color: inherit;
-  transition: background 0.12s ease;
-}
-
-.groupHeader:hover {
-  background: var(--hover-bg);
+  user-select: none;
 }
 
 .headerLeft {
@@ -68,13 +59,6 @@
   transform: rotate(180deg);
 }
 
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
 .groupName {
   font-size: 0.85rem;
   font-weight: 600;
@@ -100,32 +84,18 @@
   flex-shrink: 0;
 }
 
-.countBadge {
-  font-size: 0.68rem;
-  font-family: ui-monospace, monospace;
-  color: var(--foreground-muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  padding: 0.12rem 0.5rem;
-  border-radius: var(--radius-full);
-}
-
-.menuWrap {
-  position: relative;
-}
-
 .menuBtn {
   opacity: 0;
-  padding: 0.3rem;
+  padding: 0.35rem;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
-  color: var(--muted);
+  color: var(--foreground-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.12s ease;
+  transition: opacity 0.12s ease, background-color 0.12s ease, color 0.12s ease;
 }
 
 .group:hover .menuBtn,
@@ -138,54 +108,6 @@
   color: var(--foreground);
 }
 
-.menuDropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  width: 140px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-hover);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-lg);
-  padding: 0.25rem;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.menuItem {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.55rem;
-  font-size: 0.75rem;
-  border-radius: 4px;
-  border: none;
-  background: transparent;
-  color: var(--foreground);
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.1s ease;
-}
-
-.menuItem:hover {
-  background: var(--hover-bg);
-}
-
-.menuItemDanger {
-  color: #f87171;
-}
-
-.menuItemDanger:hover {
-  background: rgba(239, 68, 68, 0.12);
-}
-
-.menuItemDisabled {
-  color: var(--muted);
-  cursor: not-allowed;
-}
-
 .rows {
   border-top: 1px solid var(--border);
 }
@@ -194,43 +116,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  transition: background 0.12s ease;
-  user-select: none;
-}
-
-.rowDragging {
-  opacity: 0.35;
-}
-
-.dragOverlayRow {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-focus);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
-  padding: 0.65rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  max-width: 320px;
-  pointer-events: none;
-}
-
-.dragOverlayTitle {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--foreground);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dragOverlayPreview {
-  font-size: 0.74rem;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background-color 0.12s ease;
 }
 
 .rowWrapper:last-child {
@@ -245,6 +132,10 @@
   opacity: 1;
 }
 
+.rowDragging {
+  opacity: 0.35;
+}
+
 .dragHandle {
   display: flex;
   align-items: center;
@@ -254,14 +145,14 @@
   border: none;
   color: var(--muted);
   cursor: grab;
-  opacity: 0.3;
-  transition: opacity 0.15s ease, color 0.15s ease;
+  opacity: 0.35;
+  transition: opacity 0.12s ease, color 0.12s ease;
   touch-action: none;
   flex-shrink: 0;
 }
 
 .rowWrapper:hover .dragHandle {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .dragHandle:hover {
@@ -277,38 +168,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.25rem;
-  padding: 0.75rem 0.5rem 0.75rem 0.35rem;
+  gap: 1rem;
+  padding: 0.75rem 0.5rem 0.75rem 0.25rem;
   flex: 1;
   min-width: 0;
   text-decoration: none;
   color: inherit;
-}
-
-.tagSelectTrigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0.55rem 0.75rem;
-  font-size: 0.85rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--foreground);
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color 0.15s ease;
-}
-
-.tagSelectTrigger:hover {
-  border-color: var(--border-hover);
-}
-
-.tagSelectTriggerLeft {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .rowMain {
@@ -329,14 +194,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.rowClassifiedDot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #10b981;
-  flex-shrink: 0;
 }
 
 .rowPreview {
@@ -375,29 +232,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.12s ease;
+  transition: opacity 0.12s ease, background-color 0.12s ease, color 0.12s ease;
 }
 
 .rowMenuBtn:hover {
   background: var(--surface-raised);
   color: var(--foreground);
-}
-
-.rowDropdown {
-  position: absolute;
-  top: calc(100% - 4px);
-  right: 0.75rem;
-  z-index: 99;
-  min-width: 140px;
-  background: #18181b;
-  border: 1px solid var(--border-hover);
-  border-radius: var(--radius-md);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  padding: 0.3rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  backdrop-filter: blur(16px);
 }
 
 .emptyRow {
@@ -413,14 +253,14 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  padding: 0.6rem;
+  padding: 0.65rem;
   font-size: 0.75rem;
   color: var(--foreground-muted);
   background: transparent;
   border: none;
   border-top: 1px solid var(--border);
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .loadMoreBtn:hover:not(:disabled) {
@@ -433,35 +273,30 @@
   opacity: 0.5;
 }
 
-/* Rename Modal fields */
-.field {
+.tagSelectTrigger {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-bottom: 0.85rem;
-}
-
-.label {
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: var(--foreground-muted);
-}
-
-.input {
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
   padding: 0.55rem 0.75rem;
   font-size: 0.85rem;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--foreground);
-  outline: none;
+  cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.15s ease;
+  transition: background-color 0.12s ease;
 }
 
-.input:focus {
-  border-color: var(--border-focus);
+.tagSelectTrigger:hover {
+  background: var(--hover-bg);
+}
+
+.tagSelectTriggerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .modalActions {
@@ -469,35 +304,19 @@
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
+  margin-top: 1.25rem;
 }
 
-.actionBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  padding: 0.45rem 0.85rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--foreground-muted);
-  cursor: pointer;
-  transition: all 0.12s ease;
+@media (max-width: 640px) {
+  .menuBtn,
+  .rowMenuBtn {
+    opacity: 1;
+  }
+  .dragHandle {
+    opacity: 0.7;
+    padding-left: 0.5rem;
+  }
+  .rowDate {
+    display: none;
+  }
 }
-
-.actionBtn:hover:not(:disabled) {
-  color: var(--foreground);
-  background: var(--hover-bg);
-}
-
-.primaryBtn {
-  background: var(--accent) !important;
-  color: #ffffff !important;
-  border: none !important;
-}
-
-.primaryBtn:hover:not(:disabled) {
-  background: #dc2626 !important;
-}
-

@@ -36,101 +36,34 @@
   margin-bottom: 1.75rem;
   display: flex;
   justify-content: center;
+  width: 100%;
 }
 
 .toolbar {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
 }
 
 .searchWrap {
   position: relative;
   flex: 1;
-}
-
-.searchIcon {
-  position: absolute;
-  left: 0.85rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--muted);
-  pointer-events: none;
-}
-
-.searchInput {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.65rem 2.2rem 0.65rem 2.25rem;
-  font-size: 0.85rem;
-  color: var(--foreground);
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.searchInput:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 1px var(--border-focus);
-}
-
-.searchInput::placeholder {
-  color: var(--muted);
-}
-
-.searchShortcutHint {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.65rem;
-  font-family: ui-monospace, monospace;
-  color: var(--muted);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  padding: 0.1rem 0.35rem;
-  border-radius: 4px;
-  pointer-events: none;
-}
-
-.iconBtn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.65rem 0.85rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--foreground-muted);
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.iconBtn:hover {
-  background: var(--hover-bg);
-  border-color: var(--border-hover);
-  color: var(--foreground);
-}
-
-.iconBtnSquare {
-  padding: 0.65rem;
+  min-width: 0;
 }
 
 .dragOverlayRow {
   background: var(--surface-raised);
-  border: 1px solid var(--border-focus);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 0 0 12px var(--accent-glow);
+  box-shadow: var(--shadow-lg);
   padding: 0.7rem 1.1rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  min-width: 260px;
-  max-width: 380px;
+  min-width: 240px;
+  max-width: 360px;
   pointer-events: none;
   cursor: grabbing;
 }
@@ -174,21 +107,21 @@
   align-items: center;
   gap: 0.65rem;
   padding: 0.35rem 0.75rem;
-  background: rgba(18, 18, 21, 0.85);
-  border: 1px solid var(--border-hover);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border);
   border-radius: var(--radius-full);
   backdrop-filter: blur(12px);
   font-size: 0.7rem;
-  color: var(--muted);
+  color: var(--foreground-muted);
   box-shadow: var(--shadow-md);
   z-index: 40;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .shortcutBar:hover {
   color: var(--foreground);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: var(--surface-raised);
 }
 
 .shortcutItem {
@@ -197,32 +130,20 @@
   gap: 0.3rem;
 }
 
-.kbd {
-  display: inline-block;
-  padding: 0.08rem 0.3rem;
-  font-size: 0.65rem;
-  font-family: ui-monospace, monospace;
-  font-weight: 500;
-  border-radius: 4px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  color: var(--foreground);
-}
-
 .dividerDot {
-  color: var(--border);
+  color: var(--muted);
 }
 
 /* Quick Note Drawer Overlay */
 .drawerBackdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
   z-index: 90;
   display: flex;
   justify-content: flex-end;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.15s ease;
 }
 
 .drawerPanel {
@@ -230,11 +151,11 @@
   max-width: 580px;
   height: 100%;
   background: var(--surface);
-  border-left: 1px solid var(--border-hover);
+  border-left: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes slideInRight {
@@ -255,7 +176,21 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
+  .container {
+    padding: 1.25rem 0.85rem 5rem 0.85rem;
+  }
+  .brand {
+    margin-bottom: 1.25rem;
+  }
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .searchWrap {
+    width: 100%;
+    flex: 1 1 100%;
+  }
   .shortcutBar {
     display: none;
   }

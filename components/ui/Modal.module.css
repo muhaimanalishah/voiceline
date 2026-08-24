@@ -1,14 +1,14 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   z-index: 100;
-  animation: fadeIn 0.15s ease-out;
+  animation: fadeIn 0.12s ease-out;
 }
 
 @keyframes fadeIn {
@@ -22,29 +22,18 @@
 
 .modal {
   width: 100%;
-  max-width: 400px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-hover);
+  max-width: min(420px, calc(100vw - 2rem));
+  background: var(--surface-overlay);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 1.5rem;
+  padding: 1.35rem 1.4rem;
   box-shadow: var(--shadow-lg);
   position: relative;
-  animation: scaleIn 0.15s ease-out;
+  animation: fadeIn 0.12s ease-out;
 }
 
 .modalWide {
-  max-width: 460px;
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  max-width: min(500px, calc(100vw - 2rem));
 }
 
 .header {
@@ -65,14 +54,15 @@
   border: none;
   color: var(--muted);
   cursor: pointer;
-  padding: 0.25rem;
+  padding: 0.35rem;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.12s ease;
+  transition: color 0.12s ease, background 0.12s ease;
 }
 
 .closeBtn:hover {
   color: var(--foreground);
+  background: var(--hover-bg);
 }

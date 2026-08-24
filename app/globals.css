@@ -1,25 +1,41 @@
 :root {
+  /* Color Palette - High Contrast Dark Theme */
   --background: #09090b;
-  --surface: #121215;
-  --surface-raised: #18181c;
-  --surface-overlay: rgba(24, 24, 28, 0.85);
-  --foreground: #f4f4f5;
+  --surface: #141417;
+  --surface-raised: #1c1c20;
+  --surface-overlay: #232328;
+
+  /* Typography Colors */
+  --foreground: #f4f4f6;
   --foreground-muted: #a1a1aa;
   --muted: #71717a;
-  --border: rgba(255, 255, 255, 0.08);
+
+  /* Borders & Dividers */
+  --border: rgba(255, 255, 255, 0.09);
+  --border-subtle: rgba(255, 255, 255, 0.05);
   --border-hover: rgba(255, 255, 255, 0.16);
-  --border-focus: rgba(239, 68, 68, 0.5);
-  --hover-bg: rgba(255, 255, 255, 0.04);
+  --border-focus: rgba(239, 68, 68, 0.6);
+
+  /* Hover & Active States */
+  --hover-bg: rgba(255, 255, 255, 0.05);
+  --active-bg: rgba(255, 255, 255, 0.09);
+
+  /* Accent Colors */
   --accent: #ef4444;
-  --accent-glow: rgba(239, 68, 68, 0.25);
+  --accent-hover: #dc2626;
   --accent-subtle: rgba(239, 68, 68, 0.12);
+  --accent-glow: rgba(239, 68, 68, 0.25);
+
+  /* Border Radii */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-full: 9999px;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.6), 0 2px 6px -1px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.8), 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+
+  /* Elevation Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.65), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 html,
@@ -52,7 +68,11 @@ a {
   text-decoration: none;
 }
 
-/* Subtle sleek scrollbar */
+button {
+  font-family: inherit;
+}
+
+/* Sleek subtle scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -63,12 +83,12 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.25);
 }
 
 @keyframes spin {
@@ -77,14 +97,5 @@ a {
   }
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 24px rgba(239, 68, 68, 0.8);
   }
 }
