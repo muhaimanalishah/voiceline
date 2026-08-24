@@ -125,47 +125,62 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     });
   };
 
-  // Continuous Left-to-Right Moving Oscilloscope Waveform Engine
+  // Continuous Left-to-Right Moving Frequency Visualizer Engine
   const startMovingWaveform = (analyser: AnalyserNode) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    analyser.fftSize = 512;
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
     const bufferLength = analyser.frequencyBinCount;
-    const timeDomainData = new Uint8Array(bufferLength);
+    const freqData = new Uint8Array(bufferLength);
+    const timeData = new Uint8Array(bufferLength);
 
-    // Maintain a rolling history buffer for smooth left-to-right streaming
-    const historyLength = 180;
-    const history = new Array<number>(historyLength).fill(0);
+    // Maintain a rolling history buffer of columns moving left-to-right
+    const numBars = 45;
+    const history = new Array<number>(numBars).fill(0.05);
 
     const render = () => {
       animationFrameRef.current = requestAnimationFrame(render);
-      analyser.getByteTimeDomainData(timeDomainData);
+      analyser.getByteFrequencyData(freqData);
+      analyser.getByteTimeDomainData(timeData);
 
-      // Compute root-mean-square / max peak amplitude for this frame
-      let sum = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        const norm = (timeDomainData[i] - 128) / 128;
-        sum += norm * norm;
+      // Calculate frequency energy across the human vocal range (bins 2 to 32)
+      let energy = 0;
+      const startBin = 2;
+      const endBin = Math.min(bufferLength, 36);
+      for (let i = startBin; i < endBin; i++) {
+        energy += freqData[i];
       }
-      const rms = Math.sqrt(sum / bufferLength);
-      // Smooth amplitude gain
-      const targetAmp = Math.min(1, rms * 3.5);
+      const avgEnergy = energy / (endBin - startBin); // 0 - 255
 
-      // Shift history leftwards and push newest amplitude on right
+      // Calculate time-domain peak variation
+      let peak = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const val = Math.abs(timeData[i] - 128);
+        if (val > peak) peak = val;
+      }
+
+      // Normalized amplitude (0.05 base to 1.0)
+      const freqNorm = avgEnergy / 255;
+      const peakNorm = peak / 128;
+      const combined = Math.max(freqNorm * 1.5, peakNorm * 1.2);
+      const amp = Math.max(0.06, Math.min(1.0, combined));
+
+      // Shift history leftwards and push newest amplitude to the right
       history.shift();
-      history.push(targetAmp);
+      history.push(amp);
 
-      // Clear canvas with transparent alpha
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+      // Handle Retina / dynamic scaling
       const width = canvas.width;
       const height = canvas.height;
       const centerY = height / 2;
 
-      // Draw Center Baseline
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw subtle center baseline
       ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -173,47 +188,36 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       ctx.lineTo(width, centerY);
       ctx.stroke();
 
-      // Top and Bottom Waveform Path
-      const gradient = ctx.createLinearGradient(0, 0, width, 0);
-      gradient.addColorStop(0, "rgba(239, 68, 68, 0.2)");
-      gradient.addColorStop(0.7, "#f87171");
-      gradient.addColorStop(1, "#ef4444");
+      // Render moving frequency vertical rounded bars
+      const barSpacing = width / numBars;
+      const barWidth = Math.max(2, barSpacing - 2.5);
 
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = gradient;
-      ctx.fillStyle = "rgba(239, 68, 68, 0.12)";
+      for (let i = 0; i < numBars; i++) {
+        const x = i * barSpacing + 1;
+        const barAmp = history[i];
 
-      ctx.beginPath();
-      ctx.moveTo(0, centerY);
+        // Animated organic modulation
+        const wave = Math.sin((i / 4) + Date.now() / 200) * 0.05;
+        const currentAmp = Math.max(0.06, Math.min(1.0, barAmp + wave));
 
-      const step = width / (historyLength - 1);
-      for (let i = 0; i < historyLength; i++) {
-        const x = i * step;
-        const amp = history[i];
-        // Calculate organic sine variation on amplitude
-        const wave = Math.sin((i / 8) + Date.now() / 150) * 0.15;
-        const offset = (amp * (height * 0.44)) + (amp > 0.02 ? wave * (height * 0.2) : 0);
-        const y = centerY - Math.max(1, offset);
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
+        const barHeight = Math.max(4, currentAmp * (height - 6));
+        const y = centerY - barHeight / 2;
+
+        // Gradient from dim on left to vibrant red on recent (right)
+        const progress = i / numBars;
+        const alpha = 0.35 + progress * 0.65;
+
+        const grad = ctx.createLinearGradient(0, y, 0, y + barHeight);
+        grad.addColorStop(0, `rgba(248, 113, 113, ${alpha})`);
+        grad.addColorStop(0.5, `rgba(239, 68, 68, ${alpha})`);
+        grad.addColorStop(1, `rgba(220, 38, 38, ${alpha})`);
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        const r = Math.min(barWidth / 2, barHeight / 2);
+        ctx.roundRect(x, y, barWidth, barHeight, r);
+        ctx.fill();
       }
-
-      // Mirror bottom half
-      for (let i = historyLength - 1; i >= 0; i--) {
-        const x = i * step;
-        const amp = history[i];
-        const wave = Math.sin((i / 8) + Date.now() / 150) * 0.15;
-        const offset = (amp * (height * 0.44)) + (amp > 0.02 ? wave * (height * 0.2) : 0);
-        const y = centerY + Math.max(1, offset);
-        ctx.lineTo(x, y);
-      }
-
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
     };
 
     render();
@@ -357,19 +361,26 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       });
       streamRef.current = stream;
 
-      // Web Audio API Oscilloscope Analyser
+      // Web Audio API Oscilloscope / Frequency Analyser
       try {
         const AudioContextClass =
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         const audioCtx = new AudioContextClass();
         audioCtxRef.current = audioCtx;
+        if (audioCtx.state === "suspended") {
+          await audioCtx.resume();
+        }
         const source = audioCtx.createMediaStreamSource(stream);
         const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0.75;
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.8;
         source.connect(analyser);
-        startMovingWaveform(analyser);
+
+        // Small delay to ensure canvas element is mounted in DOM when recording state activates
+        setTimeout(() => {
+          startMovingWaveform(analyser);
+        }, 50);
       } catch (audioErr) {
         console.warn("Could not start visualizer AudioContext:", audioErr);
       }

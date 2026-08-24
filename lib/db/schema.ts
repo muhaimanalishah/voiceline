@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 
 export const tags = pgTable("tags", {
   id: text("id").primaryKey(),
@@ -20,6 +20,7 @@ export const recordings = pgTable("recordings", {
   title: text("title"),
   transcript: text("transcript").notNull(),
   rawTranscript: text("raw_transcript").notNull(),
+  isClassified: boolean("is_classified").notNull().default(false),
   modelUsed: text("model_used").notNull().default("gpt-4o-mini-transcribe"),
   duration: integer("duration"),
   createdAt: timestamp("created_at", { mode: "string", withTimezone: true })

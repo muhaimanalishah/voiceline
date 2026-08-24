@@ -59,6 +59,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         textPreview,
         model: row.modelUsed,
         hasTranscript: Boolean(row.transcript),
+        isClassified: Boolean(row.isClassified),
         duration: row.duration ?? null,
       };
     });
@@ -118,6 +119,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         textPreview,
         model: row.modelUsed,
         hasTranscript: Boolean(row.transcript),
+        isClassified: Boolean(row.isClassified),
         duration: row.duration ?? null,
       };
     });
@@ -155,6 +157,7 @@ export class DrizzleRecordingStore implements RecordingStore {
       updatedAt: row.updatedAt,
       text: row.transcript,
       rawTranscript: row.rawTranscript,
+      isClassified: Boolean(row.isClassified),
       model: row.modelUsed,
       duration: row.duration ?? null,
     };
@@ -162,7 +165,7 @@ export class DrizzleRecordingStore implements RecordingStore {
 
   async updateRecording(
     id: string,
-    updates: { text?: string; title?: string; tagId?: string | null }
+    updates: { text?: string; title?: string; tagId?: string | null; isClassified?: boolean }
   ): Promise<boolean> {
     const database = getDatabase();
     const updateData: Record<string, unknown> = {
@@ -176,6 +179,9 @@ export class DrizzleRecordingStore implements RecordingStore {
     }
     if (updates.tagId !== undefined) {
       updateData.tagId = updates.tagId;
+    }
+    if (updates.isClassified !== undefined) {
+      updateData.isClassified = updates.isClassified;
     }
 
     await database
@@ -218,6 +224,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         title: data.title || data.id,
         transcript: data.transcript,
         rawTranscript: data.rawTranscript,
+        isClassified: data.isClassified ?? false,
         modelUsed: data.modelUsed || "gpt-4o-mini-transcribe",
         duration: data.duration ?? null,
         createdAt: data.createdAt || new Date().toISOString(),
@@ -229,6 +236,7 @@ export class DrizzleRecordingStore implements RecordingStore {
           transcript: data.transcript,
           title: data.title || data.id,
           tagId: data.tagId ?? null,
+          isClassified: data.isClassified ?? false,
           updatedAt: new Date().toISOString(),
         },
       });

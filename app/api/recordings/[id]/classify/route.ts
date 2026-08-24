@@ -158,10 +158,11 @@ export async function POST(
       }
     }
 
-    // Update note title and tagId (null when unclassified) in PostgreSQL
+    // Update note title, tagId (null when unclassified), and isClassified flag in PostgreSQL
     await recordingStore.updateRecording(id, {
       title: parsedTitle,
       tagId: matchedTag?.id ?? null,
+      isClassified: true,
     });
     const updatedNote = await recordingStore.getRecordingById(id);
 
@@ -171,6 +172,7 @@ export async function POST(
       title: parsedTitle,
       tagId: matchedTag?.id ?? null,
       tag: matchedTag?.name ?? null,
+      isClassified: true,
       updatedAt: updatedNote?.updatedAt || new Date().toISOString(),
     });
   } catch (error) {

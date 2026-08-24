@@ -10,8 +10,8 @@ import {
   Sparkles,
   Loader2,
   CheckCircle2,
-  X,
-  ExternalLink,
+  ArrowLeft,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { RecordingDetail } from "@/lib/recordings/types";
@@ -19,16 +19,12 @@ import styles from "./TranscriptEditor.module.css";
 
 interface TranscriptEditorProps {
   recording: RecordingDetail;
-  inDrawer?: boolean;
-  onClose?: () => void;
   onUpdate: (id: string, newText: string, newTitle?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
 export default function TranscriptEditor({
   recording,
-  inDrawer = false,
-  onClose,
   onUpdate,
   onDelete,
 }: TranscriptEditorProps) {
@@ -37,6 +33,7 @@ export default function TranscriptEditor({
   const [rawTranscript, setRawTranscript] = useState(
     recording.rawTranscript || recording.text
   );
+  const [isClassified, setIsClassified] = useState(Boolean(recording.isClassified));
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isClassifying, setIsClassifying] = useState(false);
@@ -45,6 +42,7 @@ export default function TranscriptEditor({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showClassifyWarning, setShowClassifyWarning] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -101,8 +99,9 @@ export default function TranscriptEditor({
     }
   };
 
-  const handleClassify = async () => {
+  const runClassification = async () => {
     setIsClassifying(true);
+    setShowClassifyWarning(false);
     try {
       const res = await fetch(
         `/api/recordings/${encodeURIComponent(recording.id)}/classify`,
@@ -115,14 +114,23 @@ export default function TranscriptEditor({
 
       const generatedTitle = data.title;
       setTitle(generatedTitle);
+      setIsClassified(true);
       await onUpdate(recording.id, text, generatedTitle);
-      showToast("Title updated");
+      showToast("Classified & title updated");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Classification failed";
       console.error("Classification error:", err);
       showToast(msg);
     } finally {
       setIsClassifying(false);
+    }
+  };
+
+  const handleClassifyClick = () => {
+    if (isClassified) {
+      setShowClassifyWarning(true);
+    } else {
+      runClassification();
     }
   };
 
@@ -191,45 +199,44 @@ export default function TranscriptEditor({
   }, [saveChanges, handleCopy, text, title]);
 
   const handleDownloadMarkdown = () => {
-    const formattedDate = new Date(recording.createdAt).toLocaleString(undefined, {
-      dateStyle: "full",
-      timeStyle: "medium",
-    });
+    const sanitizedTitle = (title || "transcript")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+    const dateStr = new Date(recording.createdAt).toISOString().split("T")[0];
+    const filename = `${sanitizedTitle}-${dateStr}.md`;
 
     const markdownContent = [
-      `# ${title || recording.id}`,
-      ``,
-      `- **Date:** ${formattedDate}`,
+      `# ${title || "Untitled Note"}`,
+      "",
+      `- **Date:** ${new Date(recording.createdAt).toLocaleString()}`,
       `- **Model:** ${recording.model}`,
-      ``,
-      `---`,
-      ``,
-      `## Transcript`,
-      ``,
-      text || "*(No transcript content)*",
-      ``,
+      "",
+      "---",
+      "",
+      text,
     ].join("\n");
 
-    const blob = new Blob([markdownContent], {
-      type: "text/markdown;charset=utf-8;",
-    });
+    const blob = new Blob([markdownContent], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${(title || recording.id).toLowerCase().replace(/[^a-z0-9_-]/g, "-")}.md`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    showToast("Downloaded markdown");
   };
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
     try {
       await onDelete(recording.id);
-    } catch (err) {
-      console.error("Failed to delete recording:", err);
-    } finally {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to delete note.";
+      console.error("Delete note error:", err);
+      showToast(msg);
       setIsDeleting(false);
       setShowDeleteModal(false);
     }
@@ -248,10 +255,18 @@ export default function TranscriptEditor({
   });
 
   return (
-    <div className={`${styles.workspace} ${inDrawer ? styles.workspaceDrawer : ""}`}>
+    <div className={styles.workspace}>
       {toastMessage && <div className={styles.toast}>{toastMessage}</div>}
 
       <div className={styles.docContainer}>
+        {/* Top-Left Back to Notes Breadcrumb Navigation */}
+        <div className={styles.navBar}>
+          <Link href="/" className={styles.backBtn} title="Back to notes list">
+            <ArrowLeft size={14} />
+            <span>Back to Notes</span>
+          </Link>
+        </div>
+
         {/* Top Header Bar */}
         <div className={styles.headerBar}>
           <div className={styles.titleArea}>
@@ -268,6 +283,12 @@ export default function TranscriptEditor({
               <span>{formattedDate}</span>
               <span className={styles.metaDot}>•</span>
               <span className={styles.modelBadge}>{recording.model}</span>
+              {isClassified && (
+                <>
+                  <span className={styles.metaDot}>•</span>
+                  <span className={styles.classifiedBadge}>Classified</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -275,7 +296,7 @@ export default function TranscriptEditor({
             <button
               type="button"
               className={styles.actionBtn}
-              onClick={handleClassify}
+              onClick={handleClassifyClick}
               disabled={isClassifying}
               title="Classify Note (Generate AI Title)"
             >
@@ -324,31 +345,8 @@ export default function TranscriptEditor({
             >
               <Trash2 size={13} />
             </button>
-
-            {inDrawer && (
-              <>
-                <Link
-                  href={`/notes/${encodeURIComponent(recording.id)}`}
-                  className={styles.actionBtn}
-                  title="Open full page"
-                >
-                  <ExternalLink size={13} />
-                </Link>
-                {onClose && (
-                  <button
-                    type="button"
-                    className={`${styles.actionBtn} ${styles.closeDrawerBtn}`}
-                    onClick={onClose}
-                    title="Close drawer (Esc)"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </>
-            )}
           </div>
         </div>
-
 
         {/* Expansive Main Editor Area */}
         <div className={styles.editorArea}>
@@ -385,6 +383,37 @@ export default function TranscriptEditor({
         </div>
       </div>
 
+      {/* Already-Classified Warning Confirmation Modal */}
+      {showClassifyWarning && (
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalContent}>
+            <div className={styles.warnHeader}>
+              <AlertTriangle size={18} className={styles.warnIcon} />
+              <h3 className={styles.modalTitle}>Already Classified</h3>
+            </div>
+            <p className={styles.modalText}>
+              This note has already been classified. Classifying again will re-evaluate tags and generate a new AI title.
+            </p>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.actionBtn}
+                onClick={() => setShowClassifyWarning(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`${styles.actionBtn} ${styles.primaryBtn}`}
+                onClick={runClassification}
+              >
+                Classify Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Note Confirmation Modal */}
       {showDeleteModal && (
         <div className={styles.modalBackdrop}>
@@ -418,4 +447,3 @@ export default function TranscriptEditor({
     </div>
   );
 }
-

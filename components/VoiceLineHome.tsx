@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Mic, Search, Plus, Settings, Loader2, HelpCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Mic, Search, Plus, Settings, Loader2 } from "lucide-react";
 import AudioRecorder from "./AudioRecorder";
 import TagGroup from "./TagGroup";
-import TranscriptEditor from "./TranscriptEditor";
 import { NewTagModal, RenameTagModal, DeleteTagModal, ManageTagsModal, ShortcutsModal } from "./TagModals";
-import { TagWithCount, RecordingDetail, RecordingItem } from "@/lib/recordings/types";
+import { TagWithCount } from "@/lib/recordings/types";
 import styles from "./VoiceLineHome.module.css";
 
 export default function VoiceLineHome() {
+  const router = useRouter();
   const [tags, setTags] = useState<TagWithCount[]>([]);
   const [unclassifiedCount, setUnclassifiedCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,10 +21,6 @@ export default function VoiceLineHome() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [renameTarget, setRenameTarget] = useState<TagWithCount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TagWithCount | null>(null);
-
-  // Active note detail for slide-over drawer
-  const [activeNote, setActiveNote] = useState<RecordingDetail | null>(null);
-  const [isLoadingNote, setIsLoadingNote] = useState(false);
 
   // Trigger to refetch opened TagGroup components after mutations without unmounting
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -55,60 +52,8 @@ export default function VoiceLineHome() {
 
   const handleRecordingCreated = (createdId: string) => {
     handleDataChanged();
-    // Open the newly recorded note in drawer
-    handleSelectNote({ id: createdId } as RecordingItem);
-  };
-
-  const handleSelectNote = async (item: RecordingItem) => {
-    setIsLoadingNote(true);
-    try {
-      const res = await fetch(`/api/recordings/${encodeURIComponent(item.id)}`);
-      const data = await res.json();
-      if (res.ok && data.recording) {
-        setActiveNote(data.recording);
-      }
-    } catch (err) {
-      console.error("Failed to load note detail:", err);
-    } finally {
-      setIsLoadingNote(false);
-    }
-  };
-
-  const handleUpdateNote = async (id: string, newText: string, newTitle?: string) => {
-    const res = await fetch(`/api/recordings/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: newText, title: newTitle }),
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || "Failed to update transcription.");
-    }
-
-    if (activeNote && activeNote.id === id) {
-      setActiveNote({
-        ...activeNote,
-        text: newText,
-        title: newTitle || activeNote.title,
-      });
-    }
-
-    handleDataChanged();
-  };
-
-  const handleDeleteNote = async (id: string) => {
-    const res = await fetch(`/api/recordings/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || "Failed to delete recording.");
-    }
-
-    setActiveNote(null);
-    handleDataChanged();
+    // Navigate directly to the full note page
+    router.push(`/notes/${encodeURIComponent(createdId)}`);
   };
 
   // Keyboard Shortcuts: Cmd+K / Ctrl+K, Alt+N, ?, Esc
@@ -138,9 +83,8 @@ export default function VoiceLineHome() {
         return;
       }
 
-      // Esc: Close active drawer or modals
+      // Esc: Close open modals
       if (e.key === "Escape") {
-        if (activeNote) setActiveNote(null);
         if (showShortcuts) setShowShortcuts(false);
         if (showNewTag) setShowNewTag(false);
         if (showManageTags) setShowManageTags(false);
@@ -149,7 +93,7 @@ export default function VoiceLineHome() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeNote, showShortcuts, showNewTag, showManageTags]);
+  }, [showShortcuts, showNewTag, showManageTags]);
 
   return (
     <div className={styles.page}>
@@ -205,8 +149,7 @@ export default function VoiceLineHome() {
               defaultOpen
               refreshTrigger={refreshTrigger}
               searchQuery={searchQuery}
-              activeNoteId={activeNote?.id}
-              onSelectNote={handleSelectNote}
+              onNoteChanged={handleDataChanged}
             />
 
             {tags.map((tag) => (
@@ -219,8 +162,7 @@ export default function VoiceLineHome() {
                 totalCount={tag.recordingCount}
                 refreshTrigger={refreshTrigger}
                 searchQuery={searchQuery}
-                activeNoteId={activeNote?.id}
-                onSelectNote={handleSelectNote}
+                onNoteChanged={handleDataChanged}
                 onRename={() => setRenameTarget(tag)}
                 onDelete={() => setDeleteTarget(tag)}
               />
@@ -245,21 +187,6 @@ export default function VoiceLineHome() {
           </div>
         </div>
       </div>
-
-      {/* Quick Slide-Over Note Drawer */}
-      {activeNote && (
-        <div className={styles.drawerBackdrop} onClick={() => setActiveNote(null)}>
-          <div className={styles.drawerPanel} onClick={(e) => e.stopPropagation()}>
-            <TranscriptEditor
-              recording={activeNote}
-              inDrawer
-              onClose={() => setActiveNote(null)}
-              onUpdate={handleUpdateNote}
-              onDelete={handleDeleteNote}
-            />
-          </div>
-        </div>
-      )}
 
       {showNewTag && (
         <NewTagModal onClose={() => setShowNewTag(false)} onCreated={handleDataChanged} />

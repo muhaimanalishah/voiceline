@@ -32,6 +32,7 @@ export interface RecordingItem {
   textPreview: string;
   model: string;
   hasTranscript: boolean;
+  isClassified?: boolean;
   duration?: number | null;
 }
 
@@ -43,6 +44,7 @@ export interface RecordingDetail {
   updatedAt?: string;
   text: string;
   rawTranscript?: string;
+  isClassified?: boolean;
   model: string;
   duration?: number | null;
 }
@@ -66,6 +68,7 @@ export interface NewRecordingInput {
   title?: string;
   transcript: string;
   rawTranscript: string;
+  isClassified?: boolean;
   modelUsed?: string;
   duration?: number | null;
   createdAt?: string;
@@ -80,7 +83,7 @@ export interface RecordingStore {
   getRecordingById(id: string): Promise<RecordingDetail | null>;
   updateRecording(
     id: string,
-    updates: { text?: string; title?: string; tagId?: string | null }
+    updates: { text?: string; title?: string; tagId?: string | null; isClassified?: boolean }
   ): Promise<boolean>;
   resetToRawTranscript(id: string): Promise<boolean>;
   saveRecording(data: NewRecordingInput): Promise<boolean>;
