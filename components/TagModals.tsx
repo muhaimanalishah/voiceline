@@ -330,3 +330,35 @@ export function ManageTagsModal({ tags, isLoading = false, onClose, onChanged }:
     </>
   );
 }
+export function ShortcutsModal({ onClose }: { onClose: () => void }) {
+  const shortcuts = [
+    { key: "Cmd + K", desc: "Focus search bar" },
+    { key: "Alt + N", desc: "Scroll to recorder" },
+    { key: "Ctrl + S", desc: "Save transcript edits" },
+    { key: "Alt + C", desc: "Copy active transcript" },
+    { key: "?", desc: "Toggle keyboard shortcuts" },
+    { key: "Esc", desc: "Close modal / drawer" },
+  ];
+
+  return (
+    <div className={styles.backdrop} onClick={onClose}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.header}>
+          <span className={styles.title}>Keyboard Shortcuts</span>
+          <button type="button" className={styles.closeBtn} onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className={styles.shortcutsList}>
+          {shortcuts.map((s) => (
+            <div key={s.key} className={styles.shortcutRow}>
+              <span className={styles.shortcutDesc}>{s.desc}</span>
+              <span className={styles.shortcutKey}>{s.key}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -7,7 +7,8 @@ import {
   UploadCloud,
   AlertCircle,
   Loader2,
-  Radio,
+  Trash2,
+  FolderOpen,
 } from "lucide-react";
 import styles from "./AudioRecorder.module.css";
 
@@ -28,14 +29,22 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const isDiscardingRef = useRef<boolean>(false);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
-  // Clean up timer and streams on unmount
+  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+        audioCtxRef.current.close().catch(() => {});
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -83,8 +92,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
 
         audio.onloadedmetadata = () => {
           let duration = audio.duration;
-
-          // In Chrome/Chromium, WebM blobs from MediaRecorder report duration as Infinity until sought
           if (duration === Infinity || isNaN(duration)) {
             audio.currentTime = 1e101;
             audio.ontimeupdate = () => {
@@ -105,10 +112,9 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
 
         audio.onerror = () => {
           cleanup();
-          resolve(0); // If browser cannot probe duration, allow upload to proceed
+          resolve(0);
         };
 
-        // Fallback timeout in case metadata event never fires
         setTimeout(() => {
           cleanup();
           resolve(0);
@@ -119,8 +125,101 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     });
   };
 
+  // Continuous Left-to-Right Moving Oscilloscope Waveform Engine
+  const startMovingWaveform = (analyser: AnalyserNode) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    analyser.fftSize = 512;
+    const bufferLength = analyser.frequencyBinCount;
+    const timeDomainData = new Uint8Array(bufferLength);
+
+    // Maintain a rolling history buffer for smooth left-to-right streaming
+    const historyLength = 180;
+    const history = new Array<number>(historyLength).fill(0);
+
+    const render = () => {
+      animationFrameRef.current = requestAnimationFrame(render);
+      analyser.getByteTimeDomainData(timeDomainData);
+
+      // Compute root-mean-square / max peak amplitude for this frame
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const norm = (timeDomainData[i] - 128) / 128;
+        sum += norm * norm;
+      }
+      const rms = Math.sqrt(sum / bufferLength);
+      // Smooth amplitude gain
+      const targetAmp = Math.min(1, rms * 3.5);
+
+      // Shift history leftwards and push newest amplitude on right
+      history.shift();
+      history.push(targetAmp);
+
+      // Clear canvas with transparent alpha
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const width = canvas.width;
+      const height = canvas.height;
+      const centerY = height / 2;
+
+      // Draw Center Baseline
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(width, centerY);
+      ctx.stroke();
+
+      // Top and Bottom Waveform Path
+      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+      gradient.addColorStop(0, "rgba(239, 68, 68, 0.2)");
+      gradient.addColorStop(0.7, "#f87171");
+      gradient.addColorStop(1, "#ef4444");
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = gradient;
+      ctx.fillStyle = "rgba(239, 68, 68, 0.12)";
+
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+
+      const step = width / (historyLength - 1);
+      for (let i = 0; i < historyLength; i++) {
+        const x = i * step;
+        const amp = history[i];
+        // Calculate organic sine variation on amplitude
+        const wave = Math.sin((i / 8) + Date.now() / 150) * 0.15;
+        const offset = (amp * (height * 0.44)) + (amp > 0.02 ? wave * (height * 0.2) : 0);
+        const y = centerY - Math.max(1, offset);
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+
+      // Mirror bottom half
+      for (let i = historyLength - 1; i >= 0; i--) {
+        const x = i * step;
+        const amp = history[i];
+        const wave = Math.sin((i / 8) + Date.now() / 150) * 0.15;
+        const offset = (amp * (height * 0.44)) + (amp > 0.02 ? wave * (height * 0.2) : 0);
+        const y = centerY + Math.max(1, offset);
+        ctx.lineTo(x, y);
+      }
+
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    };
+
+    render();
+  };
+
   const processAudioUpload = async (file: File) => {
-    // 1. File Size Validation
     if (file.size > MAX_FILE_SIZE) {
       setError(`File size exceeds the 25MB maximum limit.`);
       return;
@@ -138,7 +237,6 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       return;
     }
 
-    // 2. Duration Validation
     const audioDuration = await checkAudioDuration(file);
     if (Number.isFinite(audioDuration) && audioDuration > MAX_RECORDING_SECONDS) {
       const durationMins = Math.ceil(audioDuration / 60);
@@ -192,21 +290,61 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     await processAudioUpload(file);
   };
 
-  const stopRecording = useCallback(() => {
+  const cleanupRecordingSession = () => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsRecording(false);
+    setDuration(0);
+  };
 
+  // Normal Stop & Transcribe
+  const stopRecording = useCallback(() => {
+    isDiscardingRef.current = false;
+    cleanupRecordingSession();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
-
-    setIsRecording(false);
   }, []);
+
+  // Cancel & Discard Recording without saving
+  const discardRecording = useCallback(() => {
+    isDiscardingRef.current = true;
+    audioChunksRef.current = [];
+    cleanupRecordingSession();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
+
+  // Esc key cancels recording if active
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isRecording) {
+        e.preventDefault();
+        discardRecording();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isRecording, discardRecording]);
 
   const startRecording = async () => {
     setError(null);
+    isDiscardingRef.current = false;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -218,6 +356,23 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
         },
       });
       streamRef.current = stream;
+
+      // Web Audio API Oscilloscope Analyser
+      try {
+        const AudioContextClass =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const audioCtx = new AudioContextClass();
+        audioCtxRef.current = audioCtx;
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.75;
+        source.connect(analyser);
+        startMovingWaveform(analyser);
+      } catch (audioErr) {
+        console.warn("Could not start visualizer AudioContext:", audioErr);
+      }
 
       const mimeType = getSupportedMimeType();
       const options: MediaRecorderOptions = {
@@ -232,30 +387,29 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
+        if (!isDiscardingRef.current && event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = async () => {
+        if (isDiscardingRef.current) {
+          audioChunksRef.current = [];
+          return;
+        }
+
         const recordedMimeType = mediaRecorder.mimeType || mimeType || "audio/webm";
         const audioBlob = new Blob(audioChunksRef.current, {
           type: recordedMimeType,
         });
 
         await handleUploadBlob(audioBlob, recordedMimeType);
-
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
-          streamRef.current = null;
-        }
       };
 
-      mediaRecorder.start(1000);
+      mediaRecorder.start(500);
       setIsRecording(true);
       setDuration(0);
 
-      // Auto-stop at 10 minutes (600s)
       timerIntervalRef.current = setInterval(() => {
         setDuration((prev) => {
           if (prev + 1 >= MAX_RECORDING_SECONDS) {
@@ -276,7 +430,9 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingOver(true);
+    if (!isRecording && !isTranscribing) {
+      setIsDraggingOver(true);
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -290,7 +446,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     e.stopPropagation();
     setIsDraggingOver(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    if (!isRecording && !isTranscribing && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processAudioUpload(e.dataTransfer.files[0]);
     }
   };
@@ -302,109 +458,108 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <h2 className={styles.title}>New Voice Note</h2>
-        <p className={styles.subtitle}>
-          Record live speech or drop existing audio files to generate instant transcripts.
-        </p>
-      </div>
-
-      <div className={styles.statusArea}>
-        {isRecording ? (
-          <>
-            <div className={styles.timer}>
-              <span className={styles.liveIndicator} />
-              {formatTime(duration)}
-            </div>
-            <div className={styles.waveform}>
-              <span className={styles.waveBar} />
-              <span className={styles.waveBar} />
-              <span className={styles.waveBar} />
-              <span className={styles.waveBar} />
-              <span className={styles.waveBar} />
-              <span className={styles.waveBar} />
-            </div>
-            <span className={styles.limitNote}>Max 10 minutes</span>
-          </>
-        ) : isTranscribing ? (
-          <div className={styles.loadingContainer}>
-            <Loader2 className={styles.spinner} size={20} />
-            <span>Transcribing with OpenAI...</span>
-          </div>
-        ) : (
-          <div className={styles.loadingContainer}>
-            <Radio size={16} style={{ color: "#71717a" }} />
-            <span className={styles.limitNote}>24kbps Opus • 10 min max</span>
-          </div>
-        )}
-      </div>
-
+    <div
+      className={`${styles.container} ${isDraggingOver ? styles.containerDragging : ""}`}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {error && (
         <div className={styles.errorBox}>
-          <AlertCircle size={16} />
+          <AlertCircle size={15} />
           <span>{error}</span>
         </div>
       )}
 
-      <div className={styles.actions}>
-        {!isRecording ? (
-          <button
-            type="button"
-            className={styles.recordBtn}
-            onClick={startRecording}
-            disabled={isTranscribing}
-          >
-            <Mic size={18} />
-            <span>Start Recording</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            className={styles.stopBtn}
-            onClick={stopRecording}
-          >
-            <Square size={16} fill="currentColor" />
-            <span>Stop & Transcribe</span>
-          </button>
-        )}
-      </div>
-
-      {!isRecording && !isTranscribing && (
-        <>
-          <div className={styles.divider}>
-            <span>Or Upload File</span>
+      {/* Morphing Dropzone when a file is dragged over */}
+      {isDraggingOver ? (
+        <div className={styles.morphDropzone}>
+          <UploadCloud size={28} className={styles.morphDropIcon} />
+          <div className={styles.morphDropTitle}>Drop audio file to transcribe</div>
+          <div className={styles.morphDropSubtitle}>MP3, M4A, WAV, WebM, OGG, AAC (Max 25MB)</div>
+        </div>
+      ) : isTranscribing ? (
+        <div className={styles.transcribingBar}>
+          <Loader2 className={styles.spinner} size={18} />
+          <span>Transcribing audio with OpenAI...</span>
+        </div>
+      ) : isRecording ? (
+        /* Active Recording Bar with Live Oscilloscope Waveform */
+        <div className={styles.recordingBar}>
+          <div className={styles.recordingLeft}>
+            <span className={styles.liveIndicator} />
+            <span className={styles.timer}>{formatTime(duration)}</span>
           </div>
 
-          <div
-            className={`${styles.dropZone} ${
-              isDraggingOver ? styles.dropZoneActive : ""
-            }`}
-            onDragOver={handleDragOver}
-            onDragEnter={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <UploadCloud className={styles.dropIcon} size={28} />
-            <div className={styles.dropTitle}>
-              {isDraggingOver
-                ? "Drop audio file here..."
-                : "Drop audio file here or click to browse"}
-            </div>
-            <div className={styles.dropSubtitle}>
-              MP3, M4A, WAV, WebM, OGG, AAC • Max 10 min / 25MB
-            </div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="audio/*,.webm,.mp3,.m4a,.wav,.ogg,.aac,.flac"
-              style={{ display: "none" }}
-              onChange={handleFileInputChange}
+          <div className={styles.canvasWrap}>
+            <canvas
+              ref={canvasRef}
+              width={340}
+              height={40}
+              className={styles.visualizerCanvas}
             />
           </div>
-        </>
+
+          <div className={styles.recordingActions}>
+            <button
+              type="button"
+              className={styles.discardBtn}
+              onClick={discardRecording}
+              title="Discard recording (Esc)"
+              aria-label="Discard recording"
+            >
+              <Trash2 size={15} />
+            </button>
+            <button
+              type="button"
+              className={styles.stopBtn}
+              onClick={stopRecording}
+              title="Stop and transcribe note"
+            >
+              <Square size={13} fill="currentColor" />
+              <span>Stop & Transcribe</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Unified Idle Bar: Record + Drag & Drop Prompt */
+        <div className={styles.idleBar}>
+          <div className={styles.idleLeft}>
+            <button
+              type="button"
+              className={styles.recordBtn}
+              onClick={startRecording}
+              title="Start recording (Alt+N)"
+            >
+              <Mic size={15} />
+              <span>Start Recording</span>
+            </button>
+            <div className={styles.idlePrompt}>
+              <span className={styles.idleMainText}>or drag & drop audio file anywhere</span>
+              <span className={styles.idleSubText}>24kbps Opus • 10 min limit</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className={styles.browseBtn}
+            onClick={() => fileInputRef.current?.click()}
+            title="Browse audio file"
+          >
+            <FolderOpen size={14} />
+            <span>Browse</span>
+          </button>
+        </div>
       )}
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="audio/*,.webm,.mp3,.m4a,.wav,.ogg,.aac,.flac"
+        style={{ display: "none" }}
+        onChange={handleFileInputChange}
+      />
     </div>
   );
 }

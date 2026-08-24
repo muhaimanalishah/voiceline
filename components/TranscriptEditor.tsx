@@ -10,18 +10,25 @@ import {
   Sparkles,
   Loader2,
   CheckCircle2,
+  X,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { RecordingDetail } from "@/lib/recordings/types";
 import styles from "./TranscriptEditor.module.css";
 
 interface TranscriptEditorProps {
   recording: RecordingDetail;
+  inDrawer?: boolean;
+  onClose?: () => void;
   onUpdate: (id: string, newText: string, newTitle?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
 export default function TranscriptEditor({
   recording,
+  inDrawer = false,
+  onClose,
   onUpdate,
   onDelete,
 }: TranscriptEditorProps) {
@@ -241,7 +248,7 @@ export default function TranscriptEditor({
   });
 
   return (
-    <div className={styles.workspace}>
+    <div className={`${styles.workspace} ${inDrawer ? styles.workspaceDrawer : ""}`}>
       {toastMessage && <div className={styles.toast}>{toastMessage}</div>}
 
       <div className={styles.docContainer}>
@@ -297,7 +304,7 @@ export default function TranscriptEditor({
               onClick={handleCopy}
               title="Copy text (Alt+C)"
             >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? <Check size={13} /> : <Copy size={13} />}
               <span>{copied ? "Copied" : "Copy"}</span>
             </button>
             <button
@@ -306,7 +313,7 @@ export default function TranscriptEditor({
               onClick={handleDownloadMarkdown}
               title="Export Markdown"
             >
-              <Download size={14} />
+              <Download size={13} />
               <span>Export</span>
             </button>
             <button
@@ -315,8 +322,30 @@ export default function TranscriptEditor({
               onClick={() => setShowDeleteModal(true)}
               title="Delete note"
             >
-              <Trash2 size={14} />
+              <Trash2 size={13} />
             </button>
+
+            {inDrawer && (
+              <>
+                <Link
+                  href={`/notes/${encodeURIComponent(recording.id)}`}
+                  className={styles.actionBtn}
+                  title="Open full page"
+                >
+                  <ExternalLink size={13} />
+                </Link>
+                {onClose && (
+                  <button
+                    type="button"
+                    className={`${styles.actionBtn} ${styles.closeDrawerBtn}`}
+                    onClick={onClose}
+                    title="Close drawer (Esc)"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 

@@ -17,6 +17,9 @@ interface TagGroupProps {
   defaultOpen?: boolean;
   canDelete?: boolean;
   refreshTrigger?: number;
+  searchQuery?: string;
+  activeNoteId?: string | null;
+  onSelectNote?: (recording: RecordingItem) => void;
   onRename?: () => void;
   onDelete?: () => void;
 }
@@ -45,6 +48,9 @@ export default function TagGroup({
   defaultOpen = false,
   canDelete = true,
   refreshTrigger,
+  searchQuery = "",
+  activeNoteId,
+  onSelectNote,
   onRename,
   onDelete,
 }: TagGroupProps) {
@@ -106,6 +112,15 @@ export default function TagGroup({
     return () => window.removeEventListener("click", close);
   }, [menuOpen]);
 
+  const query = searchQuery.trim().toLowerCase();
+  const displayedRecordings = query
+    ? recordings.filter(
+        (rec) =>
+          (rec.title && rec.title.toLowerCase().includes(query)) ||
+          (rec.textPreview && rec.textPreview.toLowerCase().includes(query))
+      )
+    : recordings;
+
   return (
     <div className={`${styles.group} ${isUnclassified ? styles.groupUnclassified : ""}`}>
       <div className={styles.groupHeader}>
@@ -121,11 +136,13 @@ export default function TagGroup({
           <span className={`${styles.groupName} ${isUnclassified ? styles.groupNameUnclassified : ""}`}>
             {name}
           </span>
-          <span className={styles.groupDescription}>{description}</span>
+          {description && <span className={styles.groupDescription}>{description}</span>}
         </button>
 
         <div className={styles.headerRight}>
-          <span className={styles.countBadge}>{totalCount}</span>
+          <span className={styles.countBadge}>
+            {totalCount} {totalCount === 1 ? "note" : "notes"}
+          </span>
           {!isUnclassified && (
             <div className={styles.menuWrap}>
               <button
@@ -184,18 +201,54 @@ export default function TagGroup({
 
       {isOpen && (
         <div className={styles.rows}>
-          {recordings.length === 0 && hasLoadedOnce && !isLoading ? (
-            <div className={styles.emptyRow}>No notes yet</div>
+          {displayedRecordings.length === 0 && hasLoadedOnce && !isLoading ? (
+            <div className={styles.emptyRow}>
+              {query ? "No matching notes found" : "No notes yet in this tag"}
+            </div>
           ) : (
-            recordings.map((rec) => (
-              <Link key={rec.id} href={`/notes/${encodeURIComponent(rec.id)}`} className={styles.row}>
-                <div className={styles.rowMain}>
-                  <div className={styles.rowTitle}>{rec.title || rec.id}</div>
-                  <div className={styles.rowPreview}>{rec.textPreview}</div>
-                </div>
-                <span className={styles.rowDate}>{formatDate(rec.createdAt)}</span>
-              </Link>
-            ))
+            displayedRecordings.map((rec) => {
+              const isSelected = activeNoteId === rec.id;
+              if (onSelectNote) {
+                return (
+                  <div
+                    key={rec.id}
+                    className={`${styles.row} ${isSelected ? styles.rowActive : ""}`}
+                    onClick={() => onSelectNote(rec)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectNote(rec);
+                      }
+                    }}
+                  >
+                    <div className={styles.rowMain}>
+                      <div className={styles.rowTitleRow}>
+                        <span className={styles.rowTitle}>{rec.title || "Untitled Note"}</span>
+                      </div>
+                      <div className={styles.rowPreview}>{rec.textPreview || "Empty note"}</div>
+                    </div>
+                    <span className={styles.rowDate}>{formatDate(rec.createdAt)}</span>
+                  </div>
+                );
+              }
+              return (
+                <Link
+                  key={rec.id}
+                  href={`/notes/${encodeURIComponent(rec.id)}`}
+                  className={`${styles.row} ${isSelected ? styles.rowActive : ""}`}
+                >
+                  <div className={styles.rowMain}>
+                    <div className={styles.rowTitleRow}>
+                      <span className={styles.rowTitle}>{rec.title || "Untitled Note"}</span>
+                    </div>
+                    <div className={styles.rowPreview}>{rec.textPreview || "Empty note"}</div>
+                  </div>
+                  <span className={styles.rowDate}>{formatDate(rec.createdAt)}</span>
+                </Link>
+              );
+            })
           )}
 
           {isLoading && recordings.length === 0 && (
@@ -204,7 +257,7 @@ export default function TagGroup({
             </div>
           )}
 
-          {hasMore && (
+          {hasMore && !query && (
             <button
               type="button"
               className={styles.loadMoreBtn}
