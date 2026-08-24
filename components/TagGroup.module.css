@@ -1,0 +1,255 @@
+.group {
+  border-radius: 12px;
+  border: 1px solid var(--border, #1f1f23);
+  background: #18181b;
+  overflow: hidden;
+}
+
+.groupUnclassified {
+  border-style: dashed;
+  border-color: #3f3f46;
+  background: rgba(24, 24, 27, 0.6);
+}
+
+.groupHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  transition: background 0.12s ease;
+}
+
+.groupHeader:hover {
+  background: var(--hover-bg, #1a1a1e);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+}
+
+.chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+  color: #a1a1aa;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.groupName {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.groupNameUnclassified {
+  color: #d4d4d8;
+}
+
+.groupDescription {
+  font-size: 0.75rem;
+  color: var(--muted, #71717a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.countBadge {
+  font-size: 0.72rem;
+  color: var(--muted, #71717a);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.menuBtn {
+  opacity: 0;
+  padding: 0.3rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted, #71717a);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.group:hover .menuBtn,
+.menuBtn:focus-visible {
+  opacity: 1;
+}
+
+.menuBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+}
+
+.menuDropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  width: 130px;
+  background: #1f1f23;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  padding: 0.25rem;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: #d4d4d8;
+  cursor: pointer;
+  text-align: left;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menuItemDanger {
+  color: #f87171;
+}
+
+.menuItemDanger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.menuItemDisabled {
+  color: #52525b;
+  cursor: not-allowed;
+}
+
+.menuItemDisabled:hover {
+  background: transparent;
+}
+
+.rows {
+  border-top: 1px solid var(--border, #1f1f23);
+}
+
+.groupUnclassified .rows {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: inherit;
+  transition: background 0.12s ease;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row:hover {
+  background: var(--hover-bg, #1a1a1e);
+}
+
+.rowMain {
+  min-width: 0;
+  flex: 1;
+}
+
+.rowTitle {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowPreview {
+  font-size: 0.75rem;
+  color: var(--muted, #71717a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 0.15rem;
+}
+
+.rowDate {
+  font-size: 0.72rem;
+  color: var(--muted, #71717a);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.emptyRow {
+  padding: 1rem;
+  font-size: 0.78rem;
+  color: var(--muted, #71717a);
+  text-align: center;
+}
+
+.loadMoreBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.6rem;
+  font-size: 0.75rem;
+  color: var(--muted, #71717a);
+  background: transparent;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.loadMoreBtn:hover:not(:disabled) {
+  color: var(--foreground, #ededed);
+  background: var(--hover-bg, #1a1a1e);
+}
+
+.loadMoreBtn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

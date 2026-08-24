@@ -7,10 +7,20 @@ export interface TagItem {
   updatedAt: string;
 }
 
+export interface TagWithCount extends TagItem {
+  recordingCount: number;
+}
+
 export interface NewTagInput {
-  id: string;
+  id?: string;
   name: string;
   description: string;
+  color?: string | null;
+}
+
+export interface UpdateTagInput {
+  name?: string;
+  description?: string;
   color?: string | null;
 }
 
@@ -63,6 +73,10 @@ export interface NewRecordingInput {
 
 export interface RecordingStore {
   getAllRecordings(options?: PaginationOptions): Promise<PaginatedRecordings>;
+  getRecordingsByTag?(
+    tagId: string | null,
+    options?: PaginationOptions
+  ): Promise<PaginatedRecordings>;
   getRecordingById(id: string): Promise<RecordingDetail | null>;
   updateTranscription(id: string, newText: string, newTitle?: string): Promise<boolean>;
   updateRecording?(
@@ -73,8 +87,13 @@ export interface RecordingStore {
   saveRecording?(data: NewRecordingInput): Promise<boolean>;
   deleteRecording(id: string): Promise<boolean>;
   getAllTags?(): Promise<TagItem[]>;
+  getAllTagsWithCounts?(): Promise<TagWithCount[]>;
+  getUnclassifiedCount?(): Promise<number>;
+  getTagById?(id: string): Promise<TagItem | null>;
   createTag?(data: NewTagInput): Promise<TagItem>;
+  updateTag?(id: string, updates: UpdateTagInput): Promise<TagItem | null>;
   deleteTag?(id: string): Promise<boolean>;
 }
+
 
 

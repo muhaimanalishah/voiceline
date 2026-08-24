@@ -6,14 +6,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const pageParam = searchParams.get("page");
     const limitParam = searchParams.get("limit");
+    const tagIdParam = searchParams.get("tagId");
 
     const page = pageParam ? parseInt(pageParam, 10) : 1;
     const limit = limitParam ? parseInt(limitParam, 10) : 20;
-
-    const result = await recordingStore.getAllRecordings({
+    const options = {
       page: isNaN(page) ? 1 : page,
       limit: isNaN(limit) ? 20 : limit,
-    });
+    };
+
+    const result = tagIdParam
+      ? await recordingStore.getRecordingsByTag!(
+          tagIdParam === "unclassified" ? null : tagIdParam,
+          options
+        )
+      : await recordingStore.getAllRecordings(options);
 
     return NextResponse.json({
       success: true,

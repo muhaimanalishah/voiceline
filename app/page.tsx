@@ -1,5 +1,5 @@
-import VoiceLineApp from "@/components/VoiceLineApp";
+import VoiceLineHome from "@/components/VoiceLineHome";
 
 export default function Home() {
-  return <VoiceLineApp />;
+  return <VoiceLineHome />;
 }

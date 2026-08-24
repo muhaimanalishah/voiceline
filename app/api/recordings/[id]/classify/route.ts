@@ -58,20 +58,84 @@ export async function POST(
       );
     }
 
+    // Retrieve available tags from the database. If none exist, tagging is
+    // skipped entirely and the note is left unclassified (tagId: null) —
+    // this is a distinct state from being deliberately tagged "Others".
+    const availableTags = (await recordingStore.getAllTags?.()) || [];
+    const hasTags = availableTags.length > 0;
+
     const openai = new OpenAI({ apiKey });
     const processingModel =
       process.env.PROCESSING_MODEL ||
       process.env.OPENAI_PROCESSING_MODEL ||
-      "gpt-4o-mini";
+      "gpt-5-nano";
+
+    const tagListPrompt = availableTags
+      .map((t) => `- id: "${t.id}", name: "${t.name}", description: ${t.description}`)
+      .join("\n");
+
+    const systemPrompt = hasTags
+      ? [
+          "You are a helpful assistant that classifies voice notes.",
+          "Analyze the transcript and generate:",
+          "1. A concise, descriptive title between 3 to 6 words maximum.",
+          "2. The id of the single most appropriate tag from the list below. You must return one of these exact ids, never a new tag name.",
+          "",
+          "Available tags:",
+          tagListPrompt,
+          "",
+          "Guidance on picking a tag: always prefer the most specific tag whose description genuinely matches the content of the note. Only choose the tag named \"Others\" as a last resort, when the note truly does not fit any of the other tags.",
+          "",
+          'Return your response strictly as a JSON object with this structure: { "title": string, "tagId": string }',
+        ].join("\n")
+      : [
+          "You are a helpful assistant that classifies voice notes.",
+          "Analyze the transcript and generate a concise, descriptive title between 3 to 6 words maximum.",
+          "",
+          'Return your response strictly as a JSON object with this structure: { "title": string }',
+        ].join("\n");
 
     const completion = await openai.chat.completions.create({
       model: processingModel,
-      response_format: { type: "json_object" },
+      response_format: hasTags
+        ? {
+            type: "json_schema",
+            json_schema: {
+              name: "note_classification",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  tagId: {
+                    type: "string",
+                    enum: availableTags.map((t) => t.id),
+                  },
+                },
+                required: ["title", "tagId"],
+                additionalProperties: false,
+              },
+            },
+          }
+        : {
+            type: "json_schema",
+            json_schema: {
+              name: "note_title",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                },
+                required: ["title"],
+                additionalProperties: false,
+              },
+            },
+          },
       messages: [
         {
           role: "system",
-          content:
-            "You are a helpful assistant that classifies voice notes. Analyze the transcript and generate a concise, descriptive title between 3 to 6 words maximum. Return your output as a JSON object with a single 'title' key.",
+          content: systemPrompt,
         },
         {
           role: "user",
@@ -86,9 +150,11 @@ export async function POST(
     }
 
     let parsedTitle = "";
+    let parsedTagId = "";
     try {
       const parsed = JSON.parse(responseContent);
-      parsedTitle = parsed.title?.trim();
+      parsedTitle = typeof parsed.title === "string" ? parsed.title.trim() : "";
+      parsedTagId = typeof parsed.tagId === "string" ? parsed.tagId.trim() : "";
     } catch {
       throw new Error("Failed to parse classification response from AI.");
     }
@@ -97,14 +163,27 @@ export async function POST(
       throw new Error("Generated title was empty.");
     }
 
-    // Update note title in PostgreSQL
-    await recordingStore.updateRecording!(id, { title: parsedTitle });
+    let matchedTag: { id: string; name: string } | null = null;
+    if (hasTags) {
+      matchedTag = availableTags.find((t) => t.id === parsedTagId) || null;
+      if (!matchedTag) {
+        throw new Error(`AI returned an unrecognized tag id: "${parsedTagId}".`);
+      }
+    }
+
+    // Update note title and tagId (null when unclassified) in PostgreSQL
+    await recordingStore.updateRecording!(id, {
+      title: parsedTitle,
+      tagId: matchedTag?.id ?? null,
+    });
     const updatedNote = await recordingStore.getRecordingById(id);
 
     return NextResponse.json({
       success: true,
       id,
       title: parsedTitle,
+      tagId: matchedTag?.id ?? null,
+      tag: matchedTag?.name ?? null,
       updatedAt: updatedNote?.updatedAt || new Date().toISOString(),
     });
   } catch (error) {
@@ -117,4 +196,5 @@ export async function POST(
     );
   }
 }
+
 
