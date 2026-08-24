@@ -51,9 +51,11 @@ export async function POST(request: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
     const model =
+      process.env.TRANSCRIBE_MODEL ||
       process.env.OPENAI_TRANSCRIBE_MODEL ||
       process.env.OPENAI_TRANSCRIPTION_MODEL ||
       "gpt-4o-mini-transcribe";
+
 
     const uniqueId = crypto.randomUUID().slice(0, 8);
     const timestamp = Date.now();

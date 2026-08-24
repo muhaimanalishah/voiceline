@@ -7,6 +7,7 @@ import {
   Download,
   Trash2,
   RotateCcw,
+  Sparkles,
   Loader2,
   CheckCircle2,
 } from "lucide-react";
@@ -31,6 +32,7 @@ export default function TranscriptEditor({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isClassifying, setIsClassifying] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [copied, setCopied] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -89,6 +91,31 @@ export default function TranscriptEditor({
   const handleTitleBlur = () => {
     if (hasUnsavedChanges) {
       saveChanges(text, title);
+    }
+  };
+
+  const handleClassify = async () => {
+    setIsClassifying(true);
+    try {
+      const res = await fetch(
+        `/api/recordings/${encodeURIComponent(recording.id)}/classify`,
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.title) {
+        throw new Error(data.error || "Failed to classify note.");
+      }
+
+      const generatedTitle = data.title;
+      setTitle(generatedTitle);
+      await onUpdate(recording.id, text, generatedTitle);
+      showToast("Title updated");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Classification failed";
+      console.error("Classification error:", err);
+      showToast(msg);
+    } finally {
+      setIsClassifying(false);
     }
   };
 
@@ -238,6 +265,20 @@ export default function TranscriptEditor({
           </div>
 
           <div className={styles.toolbarActions}>
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={handleClassify}
+              disabled={isClassifying}
+              title="Classify Note (Generate AI Title)"
+            >
+              {isClassifying ? (
+                <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} />
+              ) : (
+                <Sparkles size={13} />
+              )}
+              <span>{isClassifying ? "Classifying..." : "Classify"}</span>
+            </button>
             {hasModifiedRaw ? (
               <button
                 type="button"
@@ -278,6 +319,7 @@ export default function TranscriptEditor({
             </button>
           </div>
         </div>
+
 
         {/* Expansive Main Editor Area */}
         <div className={styles.editorArea}>
