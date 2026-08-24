@@ -8,6 +8,9 @@ import {
   AlertCircle,
   Trash2,
   FolderOpen,
+  FileAudio,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { Spinner } from "@/components/ui";
 import styles from "./AudioRecorder.module.css";
@@ -20,10 +23,18 @@ const MAX_RECORDING_SECONDS = 600; // 10 minutes limit
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB limit
 const ACCEPTED_EXTENSIONS = [".webm", ".mp3", ".m4a", ".wav", ".ogg", ".aac", ".acc", ".flac"];
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(0)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps = {}) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -223,10 +234,10 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
     render();
   };
 
-  const processAudioUpload = async (file: File) => {
+  const validateAudioFile = async (file: File): Promise<boolean> => {
     if (file.size > MAX_FILE_SIZE) {
       setError(`File size exceeds the 25MB maximum limit.`);
-      return;
+      return false;
     }
 
     const extension = "." + file.name.split(".").pop()?.toLowerCase();
@@ -238,15 +249,30 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
 
     if (!isAudioMime && !isAudioExt) {
       setError("Please select a supported audio format (.mp3, .m4a, .wav, .webm, .ogg, .aac).");
-      return;
+      return false;
     }
 
     const audioDuration = await checkAudioDuration(file);
     if (Number.isFinite(audioDuration) && audioDuration > MAX_RECORDING_SECONDS) {
       const durationMins = Math.ceil(audioDuration / 60);
       setError(`Audio duration (${durationMins} mins) exceeds the 10-minute limit.`);
-      return;
+      return false;
     }
+
+    return true;
+  };
+
+  const stageAudioFile = async (file: File) => {
+    setError(null);
+    const valid = await validateAudioFile(file);
+    if (valid) {
+      setSelectedFile(file);
+    }
+  };
+
+  const processAudioUpload = async (file: File) => {
+    const valid = await validateAudioFile(file);
+    if (!valid) return;
 
     setIsTranscribing(true);
     setError(null);
@@ -476,7 +502,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
       e.preventDefault();
       setIsDraggingOver(false);
       if (!isRecording && !isTranscribing && e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        processAudioUpload(e.dataTransfer.files[0]);
+        stageAudioFile(e.dataTransfer.files[0]);
       }
     };
 
@@ -493,7 +519,7 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      processAudioUpload(e.target.files[0]);
+      stageAudioFile(e.target.files[0]);
     }
   };
 
@@ -513,13 +539,54 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
         {isDraggingOver ? (
           <div className={styles.morphDropzone}>
             <UploadCloud size={24} className={styles.morphDropIcon} />
-            <div className={styles.morphDropTitle}>Drop audio file here to transcribe</div>
+            <div className={styles.morphDropTitle}>Drop audio file here</div>
             <div className={styles.morphDropSubtitle}>MP3, M4A, WAV, WebM, OGG, AAC (Max 25MB)</div>
           </div>
         ) : isTranscribing ? (
           <div className={styles.transcribingBar}>
             <Spinner size="sm" />
-            <span className={styles.shimmerText}>Transcribing audio with OpenAI Whisper...</span>
+            <span className={styles.shimmerText}>Transcribing audio...</span>
+          </div>
+        ) : selectedFile ? (
+          /* Staged File Bar with Direct Transcribe & Cancel Buttons */
+          <div className={styles.selectedFileBar}>
+            <div className={styles.fileInfo}>
+              <div className={styles.fileIconWrap}>
+                <FileAudio size={16} />
+              </div>
+              <div className={styles.fileMeta}>
+                <span className={styles.fileName}>{selectedFile.name}</span>
+                <span className={styles.fileSize}>{formatFileSize(selectedFile.size)}</span>
+              </div>
+            </div>
+
+            <div className={styles.fileActions}>
+              <button
+                type="button"
+                className={styles.cancelFileBtn}
+                onClick={() => {
+                  setSelectedFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                title="Remove selected file"
+                aria-label="Remove selected file"
+              >
+                <X size={14} />
+              </button>
+              <button
+                type="button"
+                className={styles.transcribeFileBtn}
+                onClick={() => {
+                  const fileToUpload = selectedFile;
+                  setSelectedFile(null);
+                  processAudioUpload(fileToUpload);
+                }}
+                title="Transcribe selected file"
+              >
+                <Sparkles size={12} />
+                <span>Transcribe</span>
+              </button>
+            </div>
           </div>
         ) : isRecording ? (
           /* Active Recording Bar with Live Oscilloscope Waveform */
