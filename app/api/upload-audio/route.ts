@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
 import { r2RecordingStore } from "@/lib/recordings/r2-store";
-import { validateCloudEnv, isLocalMode } from "@/lib/recordings";
+import { validateCloudEnv } from "@/lib/recordings";
 
 export async function POST(request: NextRequest) {
   try {
-    // Validate Cloud environment if not in local mode
-    if (!isLocalMode()) {
-      const validation = validateCloudEnv();
-      if (!validation.valid) {
-        return NextResponse.json(
-          {
-            error: `Cloud storage is not configured. Missing environment variables: ${validation.missing.join(
-              ", "
-            )}. Please set them or set APP_MODE=local for offline mode.`,
-          },
-          { status: 500 }
-        );
-      }
+    // Validate Cloud environment
+    const validation = validateCloudEnv();
+    if (!validation.valid) {
+      return NextResponse.json(
+        {
+          error: `Cloud storage is not configured. Missing environment variables: ${validation.missing.join(
+            ", "
+          )}.`,
+          missing: validation.missing,
+        },
+        { status: 500 }
+      );
     }
 
     const formData = await request.formData();
@@ -69,30 +67,13 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Save locally for temporary processing during transcription / local fallback
-    const recordingDir = path.join(process.cwd(), "public", "uploads", folderId);
-    await fs.mkdir(recordingDir, { recursive: true });
-    const destinationPath = path.join(recordingDir, filename);
-    await fs.writeFile(destinationPath, buffer);
-
-    let audioUrl = `/uploads/${folderId}/${filename}`;
-
-    // In Cloud mode (default), upload to Cloudflare R2
-    if (!isLocalMode()) {
-      try {
-        const r2Url = await r2RecordingStore.saveAudioFile(
-          folderId,
-          filename,
-          buffer,
-          mimeType
-        );
-        if (r2Url) {
-          audioUrl = r2Url;
-        }
-      } catch (err) {
-        console.error("Failed to upload audio to Cloudflare R2:", err);
-      }
-    }
+    // Upload directly to Cloudflare R2
+    const audioUrl = await r2RecordingStore.saveAudioFile(
+      folderId,
+      filename,
+      buffer,
+      mimeType
+    );
 
     return NextResponse.json({
       success: true,
@@ -100,14 +81,15 @@ export async function POST(request: NextRequest) {
       filename,
       originalName: file.name || "voice-recording",
       url: audioUrl,
-      filepath: destinationPath,
       size: file.size,
       mimeType,
     });
   } catch (error) {
     console.error("Audio upload failed:", error);
     return NextResponse.json(
-      { error: "Failed to upload and save audio file." },
+      {
+        error: error instanceof Error ? error.message : "Failed to upload audio file.",
+      },
       { status: 500 }
     );
   }

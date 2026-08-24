@@ -25,7 +25,7 @@ export class R2RecordingStore implements RecordingStore {
     this.publicUrl = process.env.R2_PUBLIC_URL ? process.env.R2_PUBLIC_URL.replace(/\/$/, "") : "";
   }
 
-  private getClient(): S3Client {
+  public getClient(): S3Client {
     if (!this.client) {
       const accountId = process.env.R2_ACCOUNT_ID || "";
       const accessKeyId = process.env.R2_ACCESS_KEY_ID || "";
@@ -248,7 +248,11 @@ export class R2RecordingStore implements RecordingStore {
             f.Key.endsWith(".webm") ||
             f.Key.endsWith(".mp4") ||
             f.Key.endsWith(".wav") ||
-            f.Key.endsWith(".ogg"))
+            f.Key.endsWith(".ogg") ||
+            f.Key.endsWith(".mp3") ||
+            f.Key.endsWith(".m4a") ||
+            f.Key.endsWith(".aac") ||
+            f.Key.endsWith(".flac"))
       );
 
       if (foundAudio && foundAudio.Key) {

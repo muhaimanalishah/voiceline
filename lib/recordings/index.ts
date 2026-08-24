@@ -7,7 +7,6 @@ import {
   NewRecordingInput,
   TranscriptionJsonData,
 } from "./types";
-import { fsRecordingStore } from "./fs-store";
 import { drizzleRecordingStore } from "./drizzle-store";
 import { r2RecordingStore } from "./r2-store";
 
@@ -21,7 +20,7 @@ export type {
   TranscriptionJsonData,
 };
 
-export { fsRecordingStore, drizzleRecordingStore, r2RecordingStore };
+export { drizzleRecordingStore, r2RecordingStore };
 
 export interface EnvValidationResult {
   valid: boolean;
@@ -42,8 +41,13 @@ export function validateCloudEnv(): EnvValidationResult {
   };
 }
 
-export function isLocalMode(): boolean {
-  return process.env.APP_MODE === "local";
+export function assertValidEnv(): void {
+  const validation = validateCloudEnv();
+  if (!validation.valid) {
+    throw new Error(
+      `Cloud backend configuration missing: ${validation.missing.join(", ")}.`
+    );
+  }
 }
 
 /**
@@ -52,27 +56,38 @@ export function isLocalMode(): boolean {
  */
 export class CloudRecordingStore implements RecordingStore {
   async getAllRecordings(options?: PaginationOptions): Promise<PaginatedRecordings> {
-    if (!process.env.DATABASE_URL) {
-      console.warn("Cloud mode active but DATABASE_URL is not set. Falling back gracefully.");
-      return {
-        recordings: [],
-        total: 0,
-        page: options?.page || 1,
-        limit: options?.limit || 15,
-        hasMore: false,
-      };
-    }
-    return drizzleRecordingStore.getAllRecordings(options);
+    assertValidEnv();
+    const result = await drizzleRecordingStore.getAllRecordings(options);
+
+    // Populate presigned/direct R2 URLs for active audio files
+    const recordingsWithUrls = await Promise.all(
+      result.recordings.map(async (item) => {
+        if (item.audioStatus === "active" && item.audioFile) {
+          try {
+            const r2Url = await r2RecordingStore.getAudioUrl(item.id, item.audioFile);
+            if (r2Url) {
+              return { ...item, audioUrl: r2Url };
+            }
+          } catch {
+            // Keep existing audioUrl
+          }
+        }
+        return item;
+      })
+    );
+
+    return {
+      ...result,
+      recordings: recordingsWithUrls,
+    };
   }
 
   async getRecordingById(id: string): Promise<RecordingDetail | null> {
-    if (!process.env.DATABASE_URL) {
-      return null;
-    }
+    assertValidEnv();
     const item = await drizzleRecordingStore.getRecordingById(id);
     if (!item) return null;
 
-    // If audio is active and audioKey exists, ensure presigned R2 url is fresh
+    // If audio is active and audioFile exists, ensure presigned R2 url is fresh
     if (item.audioStatus === "active" && item.audioFile) {
       try {
         const r2Url = await r2RecordingStore.getAudioUrl(item.id, item.audioFile);
@@ -87,14 +102,17 @@ export class CloudRecordingStore implements RecordingStore {
   }
 
   async updateTranscription(id: string, newText: string, newTitle?: string): Promise<boolean> {
+    assertValidEnv();
     return drizzleRecordingStore.updateTranscription(id, newText, newTitle);
   }
 
   async updateRecording(id: string, updates: { text?: string; title?: string }): Promise<boolean> {
+    assertValidEnv();
     return drizzleRecordingStore.updateRecording(id, updates);
   }
 
   async deleteAudioOnly(id: string): Promise<boolean> {
+    assertValidEnv();
     const detail = await drizzleRecordingStore.getRecordingById(id);
     if (detail?.audioFile) {
       try {
@@ -107,14 +125,17 @@ export class CloudRecordingStore implements RecordingStore {
   }
 
   async resetToRawTranscript(id: string): Promise<boolean> {
+    assertValidEnv();
     return drizzleRecordingStore.resetToRawTranscript(id);
   }
 
   async saveRecording(data: NewRecordingInput): Promise<boolean> {
+    assertValidEnv();
     return drizzleRecordingStore.saveRecording(data);
   }
 
   async deleteRecording(id: string): Promise<boolean> {
+    assertValidEnv();
     // Delete audio assets in R2
     try {
       await r2RecordingStore.deleteRecording(id);
@@ -129,44 +150,7 @@ export class CloudRecordingStore implements RecordingStore {
 export const cloudRecordingStore = new CloudRecordingStore();
 
 export function getRecordingStore(): RecordingStore {
-  if (isLocalMode()) {
-    return fsRecordingStore;
-  }
   return cloudRecordingStore;
 }
 
-export const recordingStore: RecordingStore = {
-  getAllRecordings: (options) => getRecordingStore().getAllRecordings(options),
-  getRecordingById: (id: string) => getRecordingStore().getRecordingById(id),
-  updateTranscription: (id: string, newText: string, newTitle?: string) =>
-    getRecordingStore().updateTranscription(id, newText, newTitle),
-  updateRecording: (id: string, updates: { text?: string; title?: string }) => {
-    const store = getRecordingStore();
-    if (store.updateRecording) {
-      return store.updateRecording(id, updates);
-    }
-    return store.updateTranscription(id, updates.text || "", updates.title);
-  },
-  deleteAudioOnly: (id: string) => {
-    const store = getRecordingStore();
-    if (store.deleteAudioOnly) {
-      return store.deleteAudioOnly(id);
-    }
-    return cloudRecordingStore.deleteAudioOnly(id);
-  },
-  resetToRawTranscript: (id: string) => {
-    const store = getRecordingStore();
-    if (store.resetToRawTranscript) {
-      return store.resetToRawTranscript(id);
-    }
-    return cloudRecordingStore.resetToRawTranscript(id);
-  },
-  saveRecording: (data: NewRecordingInput) => {
-    const store = getRecordingStore();
-    if (store.saveRecording) {
-      return store.saveRecording(data);
-    }
-    return cloudRecordingStore.saveRecording(data);
-  },
-  deleteRecording: (id: string) => getRecordingStore().deleteRecording(id),
-};
+export const recordingStore: RecordingStore = cloudRecordingStore;

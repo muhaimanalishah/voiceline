@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import fsSync from "fs";
 import path from "path";
 import crypto from "crypto";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { r2RecordingStore } from "@/lib/recordings/r2-store";
 import { drizzleRecordingStore } from "@/lib/recordings/drizzle-store";
-import { TranscriptionJsonData } from "@/lib/recordings/types";
-import { isLocalMode } from "@/lib/recordings";
+import { validateCloudEnv } from "@/lib/recordings";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +16,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const validation = validateCloudEnv();
+    if (!validation.valid) {
+      return NextResponse.json(
+        {
+          error: `Cloud backend is not configured. Missing environment variables: ${validation.missing.join(
+            ", "
+          )}.`,
+          missing: validation.missing,
+        },
+        { status: 500 }
+      );
+    }
+
     const openai = new OpenAI({ apiKey });
     const model =
       process.env.OPENAI_TRANSCRIBE_MODEL ||
@@ -26,9 +36,9 @@ export async function POST(request: NextRequest) {
       "gpt-4o-mini-transcribe";
 
     let folderId: string | null = null;
-    let audioFilePath: string | null = null;
     let audioFileName = "audio.webm";
-    const uploadsRoot = path.join(process.cwd(), "public", "uploads");
+    let audioBuffer: Buffer | null = null;
+    let mimeType = "audio/webm";
 
     const contentType = request.headers.get("content-type") || "";
 
@@ -37,32 +47,8 @@ export async function POST(request: NextRequest) {
       const file = formData.get("file") as File | null;
       const paramFolderId = formData.get("folderId") as string | null;
 
-      if (paramFolderId) {
-        const sanitizedId = path.basename(paramFolderId);
-        folderId = sanitizedId;
-        const targetDir = path.join(uploadsRoot, sanitizedId);
-        if (fsSync.existsSync(targetDir)) {
-          const files = await fs.readdir(targetDir);
-          const matchedAudio = files.find(
-            (f) =>
-              f.startsWith("audio.") ||
-              f.endsWith(".webm") ||
-              f.endsWith(".mp4") ||
-              f.endsWith(".wav") ||
-              f.endsWith(".ogg") ||
-              f.endsWith(".mp3") ||
-              f.endsWith(".m4a") ||
-              f.endsWith(".aac")
-          );
-          if (matchedAudio) {
-            audioFileName = matchedAudio;
-            audioFilePath = path.join(targetDir, matchedAudio);
-          }
-        }
-      }
-
-      if (!audioFilePath && file) {
-        const mimeType = file.type || "audio/webm";
+      if (file) {
+        mimeType = file.type || "audio/webm";
         let extension = ".webm";
         if (file.name && path.extname(file.name)) {
           extension = path.extname(file.name);
@@ -80,87 +66,96 @@ export async function POST(request: NextRequest) {
 
         const uniqueId = crypto.randomUUID().slice(0, 8);
         const timestamp = Date.now();
-        folderId = `recording-${timestamp}-${uniqueId}`;
+        folderId = paramFolderId ? path.basename(paramFolderId) : `recording-${timestamp}-${uniqueId}`;
         audioFileName = `audio${extension}`;
 
-        const recordingDir = path.join(uploadsRoot, folderId);
-        await fs.mkdir(recordingDir, { recursive: true });
-
         const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        audioFilePath = path.join(recordingDir, audioFileName);
-        await fs.writeFile(audioFilePath, buffer);
+        audioBuffer = Buffer.from(bytes);
 
-        // In Cloud mode (default), upload to Cloudflare R2
-        if (!isLocalMode()) {
-          try {
-            await r2RecordingStore.saveAudioFile(
-              folderId,
-              audioFileName,
-              buffer,
-              mimeType
-            );
-          } catch (err) {
-            console.error("Failed to upload audio to Cloudflare R2:", err);
+        // Upload to Cloudflare R2
+        await r2RecordingStore.saveAudioFile(
+          folderId,
+          audioFileName,
+          audioBuffer,
+          mimeType
+        );
+      } else if (paramFolderId) {
+        folderId = path.basename(paramFolderId);
+        // Fetch audio file from R2
+        const detail = await r2RecordingStore.getRecordingById(folderId);
+        if (detail && detail.audioFile) {
+          audioFileName = detail.audioFile;
+          // Get object buffer from R2
+          const client = (r2RecordingStore as unknown as { getClient: () => any }).getClient();
+          const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+          const getCmd = new GetObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME || "",
+            Key: `recordings/${folderId}/${audioFileName}`,
+          });
+          const resp = await client.send(getCmd);
+          if (resp.Body) {
+            const byteArray = await resp.Body.transformToByteArray();
+            audioBuffer = Buffer.from(byteArray);
           }
         }
       }
     } else {
-      // JSON body
+      // JSON body with folderId
       const body = await request.json();
       const rawFolderId =
         body.folderId || (body.folderPath ? path.basename(body.folderPath) : null);
 
       if (!rawFolderId) {
         return NextResponse.json(
-          { error: "Missing folderId or audio file in request." },
+          { error: "Missing folderId in request." },
           { status: 400 }
         );
       }
 
       folderId = path.basename(rawFolderId);
-      const targetDir = path.join(uploadsRoot, folderId);
 
-      try {
-        const files = await fs.readdir(targetDir);
-        const matchedAudio = files.find(
-          (f) =>
-            f.startsWith("audio.") ||
-            f.endsWith(".webm") ||
-            f.endsWith(".mp4") ||
-            f.endsWith(".wav") ||
-            f.endsWith(".ogg") ||
-            f.endsWith(".mp3") ||
-            f.endsWith(".m4a") ||
-            f.endsWith(".aac")
-        );
-        if (!matchedAudio) {
-          return NextResponse.json(
-            { error: `No audio file found in recording folder: ${folderId}` },
-            { status: 404 }
-          );
-        }
-        audioFileName = matchedAudio;
-        audioFilePath = path.join(targetDir, matchedAudio);
-      } catch {
+      // Fetch audio file from R2
+      const detail = await r2RecordingStore.getRecordingById(folderId);
+      if (!detail || !detail.audioFile) {
         return NextResponse.json(
-          { error: `Recording folder not found: ${folderId}` },
+          { error: `Recording audio not found in R2 for ID: ${folderId}` },
           { status: 404 }
         );
       }
+
+      audioFileName = detail.audioFile;
+      const client = (r2RecordingStore as unknown as { getClient: () => any }).getClient();
+      const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+      const getCmd = new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME || "",
+        Key: `recordings/${folderId}/${audioFileName}`,
+      });
+      const resp = await client.send(getCmd);
+      if (!resp.Body) {
+        return NextResponse.json(
+          { error: `Could not read audio from storage for: ${folderId}` },
+          { status: 404 }
+        );
+      }
+
+      const byteArray = await resp.Body.transformToByteArray();
+      audioBuffer = Buffer.from(byteArray);
     }
 
-    if (!audioFilePath || !fsSync.existsSync(audioFilePath) || !folderId) {
+    if (!audioBuffer || !folderId) {
       return NextResponse.json(
-        { error: "Audio file could not be located on server for transcription." },
+        { error: "Audio data could not be located for transcription." },
         { status: 400 }
       );
     }
 
-    // Call OpenAI Audio Transcriptions API
-    const audioStream = fsSync.createReadStream(audioFilePath);
+    // Call OpenAI Audio Transcriptions API using memory buffer
+    const openaiFile = await toFile(audioBuffer, audioFileName, {
+      type: mimeType,
+    });
+
     const transcription = await openai.audio.transcriptions.create({
-      file: audioStream,
+      file: openaiFile,
       model: model,
     });
 
@@ -172,61 +167,23 @@ export async function POST(request: NextRequest) {
       year: "numeric",
     })}`;
 
-    let audioFileSize = 0;
-    try {
-      const stat = await fs.stat(audioFilePath);
-      audioFileSize = stat.size;
-    } catch {
-      // Ignore stat error
-    }
+    const audioFileSize = audioBuffer.length;
 
-    const transcriptionData: TranscriptionJsonData = {
+    // Save to PostgreSQL with Drizzle ORM
+    await drizzleRecordingStore.saveRecording({
+      id: folderId,
       title: defaultTitle,
-      text: transcriptionText,
+      transcript: transcriptionText,
       rawTranscript: transcriptionText,
-      model,
-      createdAt,
-      audioFile: audioFileName,
+      modelUsed: model,
+      audioKey: `recordings/${folderId}/${audioFileName}`,
       audioStatus: "active",
+      audioUrl: "",
+      audioFile: audioFileName,
+      size: audioFileSize,
       duration: null,
-    };
-
-    // 1. Save transcription.json on disk
-    const jsonFilePath = path.join(uploadsRoot, folderId, "transcription.json");
-    await fs.writeFile(
-      jsonFilePath,
-      JSON.stringify(transcriptionData, null, 2),
-      "utf-8"
-    );
-
-    // 2. In Cloud mode, save transcription.json metadata to R2
-    if (!isLocalMode()) {
-      try {
-        await r2RecordingStore.saveTranscriptionJson(folderId, transcriptionData);
-      } catch (err) {
-        console.error("Failed to save transcription.json to R2:", err);
-      }
-    }
-
-    // 3. Save to PostgreSQL with Drizzle ORM (Cloud mode default)
-    try {
-      await drizzleRecordingStore.saveRecording({
-        id: folderId,
-        title: defaultTitle,
-        transcript: transcriptionText,
-        rawTranscript: transcriptionText,
-        modelUsed: model,
-        audioKey: `recordings/${folderId}/${audioFileName}`,
-        audioStatus: "active",
-        audioUrl: `/uploads/${folderId}/${audioFileName}`,
-        audioFile: audioFileName,
-        size: audioFileSize,
-        duration: null,
-        createdAt,
-      });
-    } catch (dbErr) {
-      console.warn("Could not save new recording to database:", dbErr);
-    }
+      createdAt,
+    });
 
     return NextResponse.json({
       success: true,
@@ -238,7 +195,6 @@ export async function POST(request: NextRequest) {
       audioFile: audioFileName,
       audioStatus: "active",
       folderId,
-      transcriptionJsonUrl: `/uploads/${folderId}/transcription.json`,
     });
   } catch (error) {
     console.error("Transcription error:", error);
