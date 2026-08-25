@@ -1,7 +1,9 @@
+// app/api/transcribe/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import OpenAI, { toFile } from "openai";
 import { recordingStore } from "@/lib/recordings";
+import { processVoiceNote } from "@/lib/ai/process";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,8 +36,6 @@ export async function POST(request: NextRequest) {
     let mimeType = file.type || "audio/webm";
     let filename = file.name || "recording.webm";
 
-    // OpenAI Whisper supported formats: flac, m4a, mp3, mp4, mpeg, mpga, oga, ogg, wav, webm
-    // Map .aac / .acc files to .m4a so OpenAI Whisper decodes the AAC audio stream
     if (/\.(aac|acc)$/i.test(filename) || mimeType.includes("aac")) {
       filename = filename.replace(/\.(aac|acc)$/i, "") + ".m4a";
       if (!filename.endsWith(".m4a")) filename += ".m4a";
@@ -56,13 +56,10 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const noteId = `note-${timestamp}-${uniqueId}`;
 
-    const openaiFile = await toFile(buffer, filename, {
-      type: mimeType,
-    });
-
+    const openaiFile = await toFile(buffer, filename, { type: mimeType });
     const transcription = await openai.audio.transcriptions.create({
       file: openaiFile,
-      model: model,
+      model,
     });
 
     const transcriptionText = transcription.text;
@@ -73,7 +70,7 @@ export async function POST(request: NextRequest) {
       year: "numeric",
     })}`;
 
-    // Save directly to PostgreSQL (transcript is null until processed)
+    // PHASE 1: Immediate Persistence (Guaranteed save of raw transcript)
     await recordingStore.saveRecording({
       id: noteId,
       title: defaultTitle,
@@ -83,16 +80,51 @@ export async function POST(request: NextRequest) {
       createdAt,
     });
 
-    return NextResponse.json({
-      success: true,
-      id: noteId,
-      title: defaultTitle,
-      text: null,
-      rawTranscript: transcriptionText,
-      isProcessed: false,
-      model,
-      createdAt,
-    });
+    // PHASE 2: Graceful Auto-Processing
+    try {
+      const availableTags = (await recordingStore.getAllTags()) || [];
+      const processed = await processVoiceNote({
+        rawTranscript: transcriptionText,
+        noteId,
+        currentTitle: defaultTitle,
+        availableTags,
+      });
+
+      // Update the record with processed data
+      await recordingStore.updateRecording(noteId, {
+        text: processed.cleanText,
+        title: processed.title,
+        tagId: processed.tagId,
+        summary: processed.summary,
+      });
+
+      return NextResponse.json({
+        success: true,
+        id: noteId,
+        title: processed.title,
+        text: processed.cleanText,
+        rawTranscript: transcriptionText,
+        summary: processed.summary,
+        tagId: processed.tagId,
+        tag: processed.tagName,
+        isProcessed: true,
+        model,
+        createdAt,
+      });
+    } catch (processError) {
+      console.error("Auto-processing failed, returning raw note:", processError);
+      // Fallback: Phase 1 saved record is returned safely
+      return NextResponse.json({
+        success: true,
+        id: noteId,
+        title: defaultTitle,
+        text: null,
+        rawTranscript: transcriptionText,
+        isProcessed: false,
+        model,
+        createdAt,
+      });
+    }
   } catch (error) {
     console.error("Transcription error:", error);
     const message =
@@ -103,4 +135,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

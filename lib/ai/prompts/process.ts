@@ -1,16 +1,18 @@
 import { z } from "zod";
-
-export interface TagInfo {
-  id: string;
-  name: string;
-  description: string;
-}
+import { TagItem } from "@/lib/recordings/types";
 
 export interface BuildProcessSchemaParams {
   needsTitle: boolean;
   needsSummary: boolean;
   needsTag: boolean;
-  availableTags?: TagInfo[];
+  availableTags?: TagItem[];
+}
+
+export interface ProcessedNoteResult {
+  cleanText: string;
+  title?: string;
+  summary?: string[];
+  tagId?: string;
 }
 
 export function buildProcessSchemaAndPrompt({
@@ -92,4 +94,3 @@ export function buildProcessSchemaAndPrompt({
     systemPrompt,
   };
 }
-
