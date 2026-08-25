@@ -11,46 +11,33 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import styles from "./AskSidePanel.module.css";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, isTextUIPart, UIMessage } from "ai";
 
 export interface AskSidePanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  time: string;
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter(isTextUIPart)
+    .map((part) => part.text)
+    .join("");
 }
 
-const INITIAL_DEMO_MESSAGES: ChatMessage[] = [
-  {
-    id: "1",
-    role: "assistant",
-    content: "Hi! What can I help you with today? I can search, summarize, or extract action items across all your voice recordings.",
-    time: "Just now",
-  },
-  {
-    id: "2",
-    role: "user",
-    content: "What were the key takeaways from yesterday's product sync?",
-    time: "2m ago",
-  },
-  {
-    id: "3",
-    role: "assistant",
-    content: "Based on your recordings from yesterday, you discussed:\n\n• **Shipping the visualizer**: moving frequency waveform component ready for production.\n• **Refactoring hooks**: clean separation into `useAudioUpload`, `useAudioRecorder`, and `useWaveformVisualizer`.\n• **Split layout**: side-by-side Ask AI drawer that pushes main content smoothly.",
-    time: "1m ago",
-  },
-];
-
 export default function AskSidePanel({ isOpen, onClose }: AskSidePanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_DEMO_MESSAGES);
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+    }),
+  });
+
   const [inputPrompt, setInputPrompt] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const isLoading = status === "streaming" || status === "submitted";
 
   // Auto-scroll messages list to bottom
   useEffect(() => {
@@ -78,32 +65,14 @@ export default function AskSidePanel({ isOpen, onClose }: AskSidePanelProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = inputPrompt.trim();
-    if (!trimmed) return;
+    if (!trimmed || isLoading) return;
 
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content: trimmed,
-      time: "Just now",
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+    sendMessage({ text: trimmed });
     setInputPrompt("");
 
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-
-    // Demo bot response
-    setTimeout(() => {
-      const botMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `I reviewed your recordings and found relevant details for: "${trimmed}".`,
-        time: "Just now",
-      };
-      setMessages((prev) => [...prev, botMsg]);
-    }, 600);
   };
 
   const handleCopyMessage = (id: string, text: string) => {
@@ -134,42 +103,44 @@ export default function AskSidePanel({ isOpen, onClose }: AskSidePanelProps) {
 
       <div className={styles.body}>
         <div className={styles.messagesList}>
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`${styles.messageRow} ${
-                msg.role === "user" ? styles.userRow : styles.assistantRow
-              }`}
-            >
-              {msg.role === "user" ? (
-                <div className={styles.userBubble}>{msg.content}</div>
-              ) : (
-                <div className={styles.assistantContainer}>
-                  <div className={styles.assistantContent}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {msg.content}
-                    </ReactMarkdown>
-                  </div>
-                  {/* Bottom AI Sparkle Icon & Action bar */}
-                  <div className={styles.assistantFooter}>
-                    <Sparkles className={styles.bottomIcon} size={14} />
-                    <div className={styles.assistantActions}>
-                      <button
-                        type="button"
-                        className={styles.msgActionBtn}
-                        onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        title="Copy response"
-                        aria-label="Copy response"
-                      >
-                        {copiedId === msg.id ? <Check size={12} /> : <Copy size={12} />}
-                      </button>
+          {messages.map((msg) => {
+            const text = getMessageText(msg);
+            return (
+              <div
+                key={msg.id}
+                className={`${styles.messageRow} ${
+                  msg.role === "user" ? styles.userRow : styles.assistantRow
+                }`}
+              >
+                {msg.role === "user" ? (
+                  <div className={styles.userBubble}>{text}</div>
+                ) : (
+                  <div className={styles.assistantContainer}>
+                    <div className={styles.assistantContent}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {text}
+                      </ReactMarkdown>
+                    </div>
+                    {/* Bottom AI Sparkle Icon & Action bar */}
+                    <div className={styles.assistantFooter}>
+                      <Sparkles className={styles.bottomIcon} size={14} />
+                      <div className={styles.assistantActions}>
+                        <button
+                          type="button"
+                          className={styles.msgActionBtn}
+                          onClick={() => handleCopyMessage(msg.id, text)}
+                          title="Copy response"
+                          aria-label="Copy response"
+                        >
+                          {copiedId === msg.id ? <Check size={12} /> : <Copy size={12} />}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-              <span className={styles.messageTime}>{msg.time}</span>
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
 
@@ -192,7 +163,7 @@ export default function AskSidePanel({ isOpen, onClose }: AskSidePanelProps) {
                   className={`${styles.submitBtn} ${
                     inputPrompt.trim() ? styles.submitBtnActive : ""
                   }`}
-                  disabled={!inputPrompt.trim()}
+                  disabled={!inputPrompt.trim() || isLoading}
                   aria-label="Send message"
                   title="Send (Enter)"
                 >
