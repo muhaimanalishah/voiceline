@@ -1,7 +1,10 @@
 import { generateText, Output } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
-import { buildProcessSchemaAndPrompt, ProcessedNoteResult } from "./prompts/process";
+import {
+  buildProcessSchemaAndPrompt,
+  ProcessedNoteResult,
+} from "./prompts/process";
 import { toTitleCase, isDefaultTitle } from "@/lib/utils/format";
 import { TagItem } from "@/lib/recordings/types";
 import { generateEmbedding } from "./embeddings";
@@ -24,10 +27,8 @@ export async function generateProcessedNote<T extends z.ZodTypeAny>({
     model: openai(processingModel),
     output: Output.object({ schema }),
     temperature: 0.2,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: rawTranscript },
-    ],
+    instructions: systemPrompt,
+    prompt: rawTranscript,
   });
 
   return output;
@@ -70,15 +71,11 @@ export async function processVoiceNote({
   const title =
     needsTitle && parsed.title?.trim()
       ? toTitleCase(parsed.title)
-      : (currentTitle || noteId);
+      : currentTitle || noteId;
   const summary =
-    needsSummary && parsed.summary
-      ? parsed.summary
-      : (currentSummary || null);
+    needsSummary && parsed.summary ? parsed.summary : currentSummary || null;
   const tagId =
-    needsTag && parsed.tagId
-      ? parsed.tagId
-      : (currentTagId ?? null);
+    needsTag && parsed.tagId ? parsed.tagId : (currentTagId ?? null);
 
   const matchedTag = tagId
     ? availableTags.find((t) => t.id === tagId) || null
