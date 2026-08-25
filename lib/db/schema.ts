@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, vector, index } from "drizzle-orm/pg-core";
 
 export const tags = pgTable("tags", {
   id: text("id").primaryKey(),
@@ -21,6 +21,7 @@ export const recordings = pgTable("recordings", {
   transcript: text("transcript"),
   rawTranscript: text("raw_transcript").notNull(),
   summary: text("summary"),
+  embedding: vector("embedding", { dimensions: 1536}),
   modelUsed: text("model_used").notNull().default("gpt-4o-mini-transcribe"),
   duration: integer("duration"),
   createdAt: timestamp("created_at", { mode: "string", withTimezone: true })
@@ -30,7 +31,11 @@ export const recordings = pgTable("recordings", {
     .defaultNow()
     .notNull()
     .$onUpdate(() => new Date().toISOString()),
-});
+}, 
+  (table) => [
+    index("recordings_embedding_idx").using("hnsw", table.embedding.op("vector_cosine_ops"))
+  ]
+);
 
 export type TagRow = typeof tags.$inferSelect;
 export type NewTagRow = typeof tags.$inferInsert;
