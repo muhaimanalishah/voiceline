@@ -17,6 +17,7 @@ import styles from "./AudioRecorder.module.css";
 
 export interface AudioRecorderProps {
   onRecordingCreated?: (folderId: string) => void;
+  onOpenAsk?: () => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -26,7 +27,10 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps = {}) {
+export default function AudioRecorder({
+  onRecordingCreated,
+  onOpenAsk,
+}: AudioRecorderProps = {}) {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -257,6 +261,17 @@ export default function AudioRecorder({ onRecordingCreated }: AudioRecorderProps
               <FolderOpen size={13} />
               <span>Upload</span>
             </button>
+            {onOpenAsk && (
+              <button
+                type="button"
+                className={styles.askBtn}
+                onClick={onOpenAsk}
+                title="Ask AI about your transcriptions"
+              >
+                <Sparkles size={13} />
+                <span>Ask</span>
+              </button>
+            )}
           </div>
         )}
 

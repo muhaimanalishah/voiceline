@@ -16,6 +16,7 @@ import {
 } from "@dnd-kit/core";
 import { toast } from "sonner";
 import AudioRecorder from "./AudioRecorder";
+import AskSidePanel from "./AskSidePanel";
 import TagGroup from "./TagGroup";
 import {
   NewTagModal,
@@ -50,6 +51,7 @@ export default function VoiceLineHome() {
   const [showNewTag, setShowNewTag] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [isAskPanelOpen, setIsAskPanelOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<TagWithCount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TagWithCount | null>(null);
 
@@ -119,119 +121,130 @@ export default function VoiceLineHome() {
     if (showShortcuts) setShowShortcuts(false);
     if (showNewTag) setShowNewTag(false);
     if (showManageTags) setShowManageTags(false);
+    if (isAskPanelOpen) setIsAskPanelOpen(false);
   });
 
   return (
     <div className={styles.page}>
-      <div className={styles.container}>
-        <div className={styles.headerRow}>
-          <div className={styles.brand}>
-            <span className={styles.brandIconWrap}>
-              <Mic size={14} />
-            </span>
-            <span>VoiceLine</span>
-          </div>
-
-          <div className={styles.headerActions}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowNewTag(true)}
-              icon={<Plus size={13} />}
-            >
-              New tag
-            </Button>
-            <Button
-              variant="icon"
-              size="sm"
-              onClick={() => setShowManageTags(true)}
-              title="Manage tags"
-              aria-label="Manage tags"
-              icon={<Settings size={14} />}
-            />
-          </div>
-        </div>
-
-        <div className={styles.toolbar}>
-          <SearchInput
-            ref={searchInputRef}
-            placeholder="Search notes..."
-            value={searchQuery}
-            onChange={setSearchQuery}
-            shortcut="Ctrl+K"
-          />
-        </div>
-
-        <AudioRecorder onRecordingCreated={handleRecordingCreated} />
-
-        {isLoading ? (
-          <div className={styles.loadingSpinner}>
-            <Spinner size="xl" />
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className={styles.groupsList}>
-              <TagGroup
-                tagId={null}
-                name="Unclassified"
-                description="no tag assigned yet"
-                totalCount={unclassifiedCount}
-                defaultOpen
-                searchQuery={searchQuery}
-              />
-
-              {tags.map((tag) => (
-                <TagGroup
-                  key={tag.id}
-                  tagId={tag.id}
-                  name={tag.name}
-                  description={tag.description}
-                  color={tag.color}
-                  totalCount={tag.recordingCount}
-                  searchQuery={searchQuery}
-                  onRename={() => setRenameTarget(tag)}
-                  onDelete={() => setDeleteTarget(tag)}
-                />
-              ))}
+      <div className={styles.mainColumn}>
+        <div className={styles.container}>
+          <div className={styles.headerRow}>
+            <div className={styles.brand}>
+              <span className={styles.brandIconWrap}>
+                <Mic size={14} />
+              </span>
+              <span>VoiceLine</span>
             </div>
 
-            <DragOverlay>
-              {activeDragNote ? (
-                <div className={styles.dragOverlayRow}>
-                  <div className={styles.dragOverlayTitle}>
-                    {activeDragNote.title || "Untitled Note"}
-                  </div>
-                  <div className={styles.dragOverlayPreview}>
-                    {activeDragNote.textPreview || "Empty note"}
-                  </div>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        )}
+            <div className={styles.headerActions}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowNewTag(true)}
+                icon={<Plus size={13} />}
+              >
+                New tag
+              </Button>
+              <Button
+                variant="icon"
+                size="sm"
+                onClick={() => setShowManageTags(true)}
+                title="Manage tags"
+                aria-label="Manage tags"
+                icon={<Settings size={14} />}
+              />
+            </div>
+          </div>
 
-        <div className={styles.shortcutBar} onClick={() => setShowShortcuts(true)}>
-          <div className={styles.shortcutItem}>
-            <Kbd>Ctrl+K</Kbd>
-            <span>Search</span>
+          <div className={styles.toolbar}>
+            <SearchInput
+              ref={searchInputRef}
+              placeholder="Search notes..."
+              value={searchQuery}
+              onChange={setSearchQuery}
+              shortcut="Ctrl+K"
+            />
           </div>
-          <span className={styles.dividerDot}>•</span>
-          <div className={styles.shortcutItem}>
-            <Kbd>Alt+N</Kbd>
-            <span>Record</span>
-          </div>
-          <span className={styles.dividerDot}>•</span>
-          <div className={styles.shortcutItem}>
-            <Kbd>?</Kbd>
-            <span>Shortcuts</span>
+
+          <AudioRecorder
+            onRecordingCreated={handleRecordingCreated}
+            onOpenAsk={() => setIsAskPanelOpen((v) => !v)}
+          />
+
+          {isLoading ? (
+            <div className={styles.loadingSpinner}>
+              <Spinner size="xl" />
+            </div>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className={styles.groupsList}>
+                <TagGroup
+                  tagId={null}
+                  name="Unclassified"
+                  description="no tag assigned yet"
+                  totalCount={unclassifiedCount}
+                  defaultOpen
+                  searchQuery={searchQuery}
+                />
+
+                {tags.map((tag) => (
+                  <TagGroup
+                    key={tag.id}
+                    tagId={tag.id}
+                    name={tag.name}
+                    description={tag.description}
+                    color={tag.color}
+                    totalCount={tag.recordingCount}
+                    searchQuery={searchQuery}
+                    onRename={() => setRenameTarget(tag)}
+                    onDelete={() => setDeleteTarget(tag)}
+                  />
+                ))}
+              </div>
+
+              <DragOverlay>
+                {activeDragNote ? (
+                  <div className={styles.dragOverlayRow}>
+                    <div className={styles.dragOverlayTitle}>
+                      {activeDragNote.title || "Untitled Note"}
+                    </div>
+                    <div className={styles.dragOverlayPreview}>
+                      {activeDragNote.textPreview || "Empty note"}
+                    </div>
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          )}
+
+          <div className={styles.shortcutBar} onClick={() => setShowShortcuts(true)}>
+            <div className={styles.shortcutItem}>
+              <Kbd>Ctrl+K</Kbd>
+              <span>Search</span>
+            </div>
+            <span className={styles.dividerDot}>•</span>
+            <div className={styles.shortcutItem}>
+              <Kbd>Alt+N</Kbd>
+              <span>Record</span>
+            </div>
+            <span className={styles.dividerDot}>•</span>
+            <div className={styles.shortcutItem}>
+              <Kbd>?</Kbd>
+              <span>Shortcuts</span>
+            </div>
           </div>
         </div>
       </div>
+
+      <AskSidePanel
+        isOpen={isAskPanelOpen}
+        onClose={() => setIsAskPanelOpen(false)}
+      />
 
       {showNewTag && (
         <NewTagModal onClose={() => setShowNewTag(false)} />
