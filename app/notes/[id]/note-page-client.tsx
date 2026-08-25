@@ -7,7 +7,7 @@ import { RecordingDetail } from "@/lib/recordings/types";
 import {
   useUpdateRecordingMutation,
   useDeleteRecordingMutation,
-} from "@/lib/hooks/queries/useRecordings";
+} from "@/hooks/queries/useRecordings";
 
 interface NotePageClientProps {
   recording: RecordingDetail;

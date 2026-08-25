@@ -26,12 +26,12 @@ import { RecordingDetail } from "@/lib/recordings/types";
 import { DEFAULT_TAG_COLOR } from "@/lib/recordings/constants";
 import { exportNoteAsMarkdown } from "@/lib/utils/export";
 import { formatFullDate } from "@/lib/utils/format";
-import { useKeyboardShortcut } from "@/lib/hooks/useKeyboardShortcut";
-import { useTagsQuery } from "@/lib/hooks/queries/useTags";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { useTagsQuery } from "@/hooks/queries/useTags";
 import {
   useUpdateRecordingMutation,
   useProcessRecordingMutation,
-} from "@/lib/hooks/queries/useRecordings";
+} from "@/hooks/queries/useRecordings";
 import styles from "./TranscriptEditor.module.css";
 
 interface TranscriptEditorProps {

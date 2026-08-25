@@ -31,13 +31,13 @@ import { RecordingItem } from "@/lib/recordings/types";
 import { DEFAULT_TAG_COLOR } from "@/lib/recordings/constants";
 import { exportNoteAsMarkdown } from "@/lib/utils/export";
 import { formatRelativeDate } from "@/lib/utils/format";
-import { useTagsQuery } from "@/lib/hooks/queries/useTags";
+import { useTagsQuery } from "@/hooks/queries/useTags";
 import {
   useRecordingsByTagInfiniteQuery,
   useUpdateRecordingMutation,
   useDeleteRecordingMutation,
   useProcessRecordingMutation,
-} from "@/lib/hooks/queries/useRecordings";
+} from "@/hooks/queries/useRecordings";
 import styles from "./TagGroup.module.css";
 
 interface TagGroupProps {

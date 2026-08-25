@@ -26,8 +26,8 @@ import {
   useUpdateTagMutation,
   useDeleteTagMutation,
   useTagsQuery,
-} from "@/lib/hooks/queries/useTags";
-import { useUpdateRecordingMutation } from "@/lib/hooks/queries/useRecordings";
+} from "@/hooks/queries/useTags";
+import { useUpdateRecordingMutation } from "@/hooks/queries/useRecordings";
 import styles from "./TagModals.module.css";
 
 interface NewTagModalProps {

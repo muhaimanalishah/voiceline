@@ -4,7 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { PaginatedRecordings } from "@/lib/recordings/types";
-import { queryKeys } from "@/lib/query/keys";
+import { queryKeys } from "@/hooks/queries/keys";
 
 const PAGE_SIZE = 10;
 

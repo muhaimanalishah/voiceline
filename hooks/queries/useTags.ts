@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TagWithCount } from "@/lib/recordings/types";
-import { queryKeys } from "@/lib/query/keys";
+import { queryKeys } from "@/hooks/queries/keys";
 
 export interface TagsResponse {
   tags: TagWithCount[];

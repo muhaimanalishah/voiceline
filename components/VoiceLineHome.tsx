@@ -31,10 +31,10 @@ import {
   Spinner,
 } from "@/components/ui";
 import { TagWithCount, RecordingItem } from "@/lib/recordings/types";
-import { useTagsQuery } from "@/lib/hooks/queries/useTags";
-import { useUpdateRecordingMutation } from "@/lib/hooks/queries/useRecordings";
-import { queryKeys } from "@/lib/query/keys";
-import { useKeyboardShortcut } from "@/lib/hooks/useKeyboardShortcut";
+import { useTagsQuery } from "@/hooks/queries/useTags";
+import { useUpdateRecordingMutation } from "@/hooks/queries/useRecordings";
+import { queryKeys } from "@/hooks/queries/keys";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import styles from "./VoiceLineHome.module.css";
 
 export default function VoiceLineHome() {
