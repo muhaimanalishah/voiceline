@@ -1,10 +1,10 @@
-// lib/ai/process.ts
 import { generateText, Output } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { buildProcessSchemaAndPrompt, ProcessedNoteResult } from "./prompts/process";
 import { toTitleCase, isDefaultTitle } from "@/lib/utils/format";
 import { TagItem } from "@/lib/recordings/types";
+import { generateEmbedding } from "./embeddings";
 
 export async function generateProcessedNote<T extends z.ZodTypeAny>({
   schema,
@@ -84,11 +84,24 @@ export async function processVoiceNote({
     ? availableTags.find((t) => t.id === tagId) || null
     : null;
 
+  // Build semantic payload and compute vector embedding
+  const textToEmbed = [
+    `Title: ${title}`,
+    matchedTag ? `Tag: ${matchedTag.name}` : null,
+    summary && summary.length > 0 ? `Summary:\n${summary.join("\n")}` : null,
+    `Content:\n${cleanText}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const embedding = await generateEmbedding(textToEmbed);
+
   return {
     cleanText,
     title,
     summary,
     tagId,
     tagName: matchedTag?.name ?? null,
+    embedding,
   };
 }

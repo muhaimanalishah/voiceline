@@ -43,8 +43,8 @@ export interface RecordingDetail {
   title?: string;
   createdAt: string;
   updatedAt?: string;
-  text: string | null; // Clean / processed transcript (null if unprocessed)
-  rawTranscript: string; // Original audio transcription (always present)
+  text: string | null;
+  rawTranscript: string;
   summary?: string[] | null;
   isProcessed: boolean;
   model: string;
@@ -64,6 +64,14 @@ export interface PaginatedRecordings {
   hasMore: boolean;
 }
 
+export interface UpdateRecordingInput {
+  text?: string;
+  title?: string;
+  tagId?: string | null;
+  summary?: string[] | null;
+  embedding?: number[] | null;
+}
+
 export interface NewRecordingInput {
   id: string;
   tagId?: string | null;
@@ -71,6 +79,7 @@ export interface NewRecordingInput {
   transcript?: string | null;
   rawTranscript: string;
   summary?: string[] | null;
+  embedding?: number[] | null;
   modelUsed?: string;
   duration?: number | null;
   createdAt?: string;
@@ -80,18 +89,10 @@ export interface RecordingStore {
   getAllRecordings(options?: PaginationOptions): Promise<PaginatedRecordings>;
   getRecordingsByTag(
     tagId: string | null,
-    options?: PaginationOptions
+    options?: PaginationOptions,
   ): Promise<PaginatedRecordings>;
   getRecordingById(id: string): Promise<RecordingDetail | null>;
-  updateRecording(
-    id: string,
-    updates: {
-      text?: string;
-      title?: string;
-      tagId?: string | null;
-      summary?: string[] | null;
-    }
-  ): Promise<boolean>;
+  updateRecording(id: string, updates: UpdateRecordingInput): Promise<boolean>;
   saveRecording(data: NewRecordingInput): Promise<boolean>;
   deleteRecording(id: string): Promise<boolean>;
   getAllTags(): Promise<TagItem[]>;
@@ -102,6 +103,3 @@ export interface RecordingStore {
   updateTag(id: string, updates: UpdateTagInput): Promise<TagItem | null>;
   deleteTag(id: string): Promise<boolean>;
 }
-
-
-

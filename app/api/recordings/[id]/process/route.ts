@@ -1,4 +1,3 @@
-// app/api/recordings/[id]/process/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { recordingStore } from "@/lib/recordings";
 import { processVoiceNote } from "@/lib/ai/process";
@@ -39,6 +38,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       title: processed.title,
       tagId: processed.tagId,
       summary: processed.summary,
+      embedding: processed.embedding,
     });
 
     const updatedNote = await recordingStore.getRecordingById(id);

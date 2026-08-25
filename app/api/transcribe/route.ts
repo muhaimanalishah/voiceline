@@ -1,4 +1,3 @@
-// app/api/transcribe/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import OpenAI, { toFile } from "openai";
@@ -70,7 +69,7 @@ export async function POST(request: NextRequest) {
       year: "numeric",
     })}`;
 
-    // PHASE 1: Immediate Persistence (Guaranteed save of raw transcript)
+    // PHASE 1: Immediate Persistence (Guaranteed baseline save)
     await recordingStore.saveRecording({
       id: noteId,
       title: defaultTitle,
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
       createdAt,
     });
 
-    // PHASE 2: Graceful Auto-Processing
+    // PHASE 2: Graceful Auto-Processing + Embedding Indexing
     try {
       const availableTags = (await recordingStore.getAllTags()) || [];
       const processed = await processVoiceNote({
@@ -90,12 +89,12 @@ export async function POST(request: NextRequest) {
         availableTags,
       });
 
-      // Update the record with processed data
       await recordingStore.updateRecording(noteId, {
         text: processed.cleanText,
         title: processed.title,
         tagId: processed.tagId,
         summary: processed.summary,
+        embedding: processed.embedding,
       });
 
       return NextResponse.json({
@@ -113,7 +112,6 @@ export async function POST(request: NextRequest) {
       });
     } catch (processError) {
       console.error("Auto-processing failed, returning raw note:", processError);
-      // Fallback: Phase 1 saved record is returned safely
       return NextResponse.json({
         success: true,
         id: noteId,

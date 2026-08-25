@@ -11,6 +11,7 @@ import {
   TagWithCount,
   NewTagInput,
   UpdateTagInput,
+  UpdateRecordingInput,
 } from "./types";
 import crypto from "crypto";
 
@@ -168,12 +169,7 @@ export class DrizzleRecordingStore implements RecordingStore {
 
   async updateRecording(
     id: string,
-    updates: {
-      text?: string;
-      title?: string;
-      tagId?: string | null;
-      summary?: string[] | null;
-    }
+    updates: UpdateRecordingInput
   ): Promise<boolean> {
     const database = getDatabase();
     const updateData: Record<string, unknown> = {
@@ -190,6 +186,9 @@ export class DrizzleRecordingStore implements RecordingStore {
     }
     if (updates.summary !== undefined) {
       updateData.summary = updates.summary ? JSON.stringify(updates.summary) : null;
+    }
+    if (updates.embedding !== undefined) {
+      updateData.embedding = updates.embedding;
     }
 
     await database
@@ -211,6 +210,7 @@ export class DrizzleRecordingStore implements RecordingStore {
         transcript: data.transcript,
         rawTranscript: data.rawTranscript,
         summary: data.summary ? JSON.stringify(data.summary) : null,
+        embedding: data.embedding ?? null,
         modelUsed: data.modelUsed || "gpt-4o-mini-transcribe",
         duration: data.duration ?? null,
         createdAt: data.createdAt || new Date().toISOString(),
@@ -223,6 +223,7 @@ export class DrizzleRecordingStore implements RecordingStore {
           title: data.title || data.id,
           tagId: data.tagId ?? null,
           summary: data.summary ? JSON.stringify(data.summary) : null,
+          embedding: data.embedding ?? null,
           updatedAt: new Date().toISOString(),
         },
       });
