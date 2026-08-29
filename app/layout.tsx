@@ -20,7 +20,11 @@ export const metadata: Metadata = {
     "Record voice notes, get them transcribed, and let AI clean them up with titles, summaries, and tags.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
