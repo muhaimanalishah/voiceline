@@ -203,8 +203,24 @@
 }
 
 @media (max-width: 640px) {
+  .page {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .mainColumn {
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
   .container {
-    padding: 1.25rem 0.85rem calc(5.5rem + env(safe-area-inset-bottom)) 0.85rem;
+    padding: 1.25rem 0.85rem 1.5rem 0.85rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
   }
   .brand {
     margin-bottom: 1.25rem;

@@ -306,11 +306,19 @@
 }
 
 @media (max-width: 640px) {
+  .workspace {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
   .docContainer {
-    padding: 1.25rem 1rem 3rem 1rem;
+    padding: 1.25rem 1rem;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
   .textarea {
-    padding: 0 0 2.5rem 0;
+    padding: 0;
   }
   .headerBar {
     flex-direction: column;
@@ -326,6 +334,7 @@
   }
   .bottomBar {
     padding: 0.55rem 1rem;
-    margin-bottom: calc(3.85rem + env(safe-area-inset-bottom));
+    margin-bottom: 0;
+    flex-shrink: 0;
   }
 }

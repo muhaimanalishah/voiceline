@@ -178,12 +178,6 @@ export default function VoiceLineHome() {
             />
           </div>
 
-          <AudioRecorder
-            onRecordingCreated={handleRecordingCreated}
-            onOpenAsk={() => setIsAskPanelOpen((v) => !v)}
-            isAskOpen={isAskPanelOpen}
-          />
-
           {isLoading ? (
             <div className={styles.loadingSpinner}>
               <Spinner size="xl" />
@@ -252,6 +246,12 @@ export default function VoiceLineHome() {
             </div>
           </div>
         </div>
+
+        <AudioRecorder
+          onRecordingCreated={handleRecordingCreated}
+          onOpenAsk={() => setIsAskPanelOpen((v) => !v)}
+          isAskOpen={isAskPanelOpen}
+        />
       </div>
 
       <VoicelineAISidePanel

@@ -501,14 +501,15 @@
 
 @media (max-width: 640px) {
   .floatingWrapper {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
     transform: none;
     width: 100%;
     max-width: 100%;
-    z-index: 90;
+    z-index: 50;
+    flex-shrink: 0;
     padding: 0;
     margin: 0;
   }
