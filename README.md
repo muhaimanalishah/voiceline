@@ -4,10 +4,7 @@ VoiceLine is an AI-powered voice-note workspace: record or upload audio, get it 
 
 <p align="center">
   <img src=".github/readme-assets/workspace.jpg" alt="VoiceLine workspace with notes grouped by tag" width="49%" />
-  <img src=".github/readme-assets/recording.jpg" alt="Recording a voice note with live waveform" width="49%" />
-</p>
-<p align="center">
-  <img src=".github/readme-assets/note-detail.jpg" alt="Note detail page with processed transcript" width="70%" />
+  <img src=".github/readme-assets/ai-panel.jpg" alt="Voiceline AI RAG interactive side panel" width="49%" />
 </p>
 
 ## Key Features
