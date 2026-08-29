@@ -4,8 +4,8 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
-  width: calc(100% - 2rem);
-  max-width: 540px;
+  width: max-content;
+  max-width: calc(100% - 2rem);
   pointer-events: auto;
   transition: left 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.2s ease;
 }
@@ -24,13 +24,13 @@
 
 .dockCapsule {
   width: 100%;
-  background: rgba(18, 18, 22, 0.88);
+  background: rgba(18, 18, 22, 0.92);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 28px;
   box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
-  padding: 0.4rem 0.5rem;
+  padding: 0.35rem 0.45rem;
   transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
@@ -47,13 +47,27 @@
   padding: 1.25rem 1rem;
 }
 
-/* 1. Idle Bar */
+/* 1. Segmented Capsule Idle Bar */
 .idleBar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
+  gap: 0.5rem;
   width: 100%;
+}
+
+.dockDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-subtle);
+  margin: 0 0.15rem;
+  flex-shrink: 0;
+}
+
+.dockRightGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
 }
 
 .recordBtn {
@@ -124,32 +138,6 @@
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   margin-left: 0.2rem;
-}
-
-.idleCenter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-width: 0;
-  padding: 0 0.25rem;
-}
-
-.idleMainText {
-  font-size: 0.74rem;
-  font-weight: 500;
-  color: var(--foreground-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.idleSubText {
-  font-size: 0.64rem;
-  font-family: ui-monospace, monospace;
-  color: var(--muted);
-  white-space: nowrap;
 }
 
 .browseBtn {

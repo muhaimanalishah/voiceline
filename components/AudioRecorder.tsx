@@ -238,7 +238,6 @@ export default function AudioRecorder({
             </div>
           </div>
         ) : (
-          /* Unified Idle Bar: Record + Drag & Drop Prompt */
           <div className={styles.idleBar}>
             <button
               type="button"
@@ -254,31 +253,30 @@ export default function AudioRecorder({
               <span className={styles.kbdHint}>Alt+N</span>
             </button>
 
-            <div className={styles.idleCenter}>
-              <span className={styles.idleMainText}>or drop audio anywhere</span>
-              <span className={styles.idleSubText}>128kbps • 10 min limit</span>
-            </div>
+            <div className={styles.dockDivider} />
 
-            <button
-              type="button"
-              className={styles.browseBtn}
-              onClick={() => fileInputRef.current?.click()}
-              title="Upload audio file"
-            >
-              <FolderOpen size={13} />
-              <span>Upload</span>
-            </button>
-            {onOpenAsk && (
+            <div className={styles.dockRightGroup}>
               <button
                 type="button"
-                className={`${styles.askBtn} ${isAskOpen ? styles.askBtnActive : ""}`}
-                onClick={onOpenAsk}
-                title="Voiceline AI about your transcriptions"
+                className={styles.browseBtn}
+                onClick={() => fileInputRef.current?.click()}
+                title="Upload audio file"
               >
-                <Sparkles size={13} className={styles.askIcon} />
-                <span>Voiceline AI</span>
+                <FolderOpen size={13} />
+                <span>Upload</span>
               </button>
-            )}
+              {onOpenAsk && (
+                <button
+                  type="button"
+                  className={`${styles.askBtn} ${isAskOpen ? styles.askBtnActive : ""}`}
+                  onClick={onOpenAsk}
+                  title="Voiceline AI about your transcriptions"
+                >
+                  <Sparkles size={13} className={styles.askIcon} />
+                  <span>Voiceline AI</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
 
