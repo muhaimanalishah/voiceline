@@ -133,11 +133,13 @@ export default function AudioRecorder({
     processAudioUpload(fileToUpload);
   };
 
+  if (isAskOpen) {
+    return null;
+  }
+
   return (
     <aside
-      className={`${styles.floatingWrapper} ${
-        isAskOpen ? styles.floatingWrapperShifted : ""
-      }`}
+      className={styles.floatingWrapper}
       aria-label="Audio Recorder"
     >
       {error && (
@@ -261,18 +263,20 @@ export default function AudioRecorder({
                 className={styles.browseBtn}
                 onClick={() => fileInputRef.current?.click()}
                 title="Upload audio file"
+                aria-label="Upload audio file"
               >
-                <FolderOpen size={13} />
+                <FolderOpen size={14} className={styles.browseIcon} />
                 <span>Upload</span>
               </button>
               {onOpenAsk && (
                 <button
                   type="button"
-                  className={`${styles.askBtn} ${isAskOpen ? styles.askBtnActive : ""}`}
+                  className={styles.askBtn}
                   onClick={onOpenAsk}
                   title="Voiceline AI about your transcriptions"
+                  aria-label="Voiceline AI"
                 >
-                  <Sparkles size={13} className={styles.askIcon} />
+                  <Sparkles size={14} className={styles.askIcon} />
                   <span>Voiceline AI</span>
                 </button>
               )}

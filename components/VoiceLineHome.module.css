@@ -19,7 +19,7 @@
 .container {
   width: 100%;
   max-width: 780px;
-  padding: 3rem 1.25rem 8rem 1.25rem;
+  padding: 3rem 1.25rem 10rem 1.25rem;
   display: flex;
   flex-direction: column;
 }
@@ -204,13 +204,31 @@
 
 @media (max-width: 640px) {
   .container {
-    padding: 1.25rem 0.85rem 5rem 0.85rem;
+    padding: 1.25rem 0.85rem 9rem 0.85rem;
   }
   .brand {
     margin-bottom: 1.25rem;
   }
+  .headerActions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .headerActions button {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .headerActions button > span {
+    display: none !important;
+  }
   .headerBtnText {
-    display: none;
+    display: none !important;
   }
   .toolbar {
     flex-wrap: wrap;

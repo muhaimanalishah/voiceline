@@ -19,7 +19,7 @@
   width: 100%;
   max-width: 860px;
   margin: 0 auto;
-  padding: 2rem 2.5rem 1.5rem 2.5rem;
+  padding: 2rem 2.5rem 8.5rem 2.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -307,7 +307,7 @@
 
 @media (max-width: 640px) {
   .docContainer {
-    padding: 1.25rem 1rem 1rem 1rem;
+    padding: 1.25rem 1rem 8.5rem 1rem;
   }
   .headerBar {
     flex-direction: column;
