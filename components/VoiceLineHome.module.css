@@ -209,6 +209,9 @@
   .brand {
     margin-bottom: 1.25rem;
   }
+  .headerBtnText {
+    display: none;
+  }
   .toolbar {
     flex-wrap: wrap;
     gap: 0.5rem;

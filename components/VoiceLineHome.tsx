@@ -142,16 +142,20 @@ export default function VoiceLineHome() {
                 size="sm"
                 onClick={() => setIsAskPanelOpen((v) => !v)}
                 icon={<Sparkles size={13} />}
+                title="Voiceline AI"
+                aria-label="Voiceline AI"
               >
-                Voiceline AI
+                <span className={styles.headerBtnText}>Voiceline AI</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowNewTag(true)}
                 icon={<Plus size={13} />}
+                title="New tag"
+                aria-label="New tag"
               >
-                New tag
+                <span className={styles.headerBtnText}>New tag</span>
               </Button>
               <Button
                 variant="icon"

@@ -504,18 +504,36 @@
 
 @media (max-width: 640px) {
   .floatingWrapper {
-    bottom: 1.15rem;
-    width: calc(100% - 1.25rem);
+    bottom: 3.75rem;
+    width: max-content;
+    max-width: calc(100% - 1.25rem);
   }
 
   @supports (padding-bottom: env(safe-area-inset-bottom)) {
     .floatingWrapper {
-      bottom: max(1.15rem, calc(0.65rem + env(safe-area-inset-bottom)));
+      bottom: max(3.75rem, calc(2.85rem + env(safe-area-inset-bottom)));
     }
   }
 
-  .idleCenter {
+  .browseBtn span,
+  .askBtn span {
     display: none;
+  }
+
+  .browseBtn,
+  .askBtn {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .kbdHint {
+    display: none;
+  }
+
+  .recordBtn {
+    padding: 0 0.75rem;
+    height: 34px;
   }
 
   .canvasWrap {
@@ -535,10 +553,6 @@
   .stopBtn {
     padding: 0 0.65rem;
     font-size: 0.72rem;
-  }
-
-  .kbdHint {
-    display: none;
   }
 }
 
