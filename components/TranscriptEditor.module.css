@@ -307,10 +307,10 @@
 
 @media (max-width: 640px) {
   .docContainer {
-    padding: 1.25rem 1rem 12rem 1rem;
+    padding: 1.25rem 1rem 3rem 1rem;
   }
   .textarea {
-    padding: 0 0 11rem 0;
+    padding: 0 0 2.5rem 0;
   }
   .headerBar {
     flex-direction: column;
@@ -325,6 +325,7 @@
     padding-top: 0;
   }
   .bottomBar {
-    padding: 0.65rem 1rem;
+    padding: 0.55rem 1rem;
+    margin-bottom: calc(3.85rem + env(safe-area-inset-bottom));
   }
 }

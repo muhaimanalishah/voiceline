@@ -501,15 +501,52 @@
 
 @media (max-width: 640px) {
   .floatingWrapper {
-    bottom: 3.75rem;
-    width: max-content;
-    max-width: calc(100% - 1.25rem);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: none;
+    width: 100%;
+    max-width: 100%;
+    z-index: 90;
+    padding: 0;
+    margin: 0;
   }
 
-  @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    .floatingWrapper {
-      bottom: max(3.75rem, calc(2.85rem + env(safe-area-inset-bottom)));
-    }
+  .dockCapsule {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+    background: rgba(14, 14, 18, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    padding: 0.55rem 0.85rem max(0.55rem, env(safe-area-inset-bottom)) 0.85rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .idleBar {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .recordBtn {
+    flex: 1;
+    padding: 0 0.85rem;
+    height: 38px;
+    font-size: 0.8rem;
+    justify-content: center;
+  }
+
+  .dockRightGroup {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
   }
 
   .browseBtn span,
@@ -519,15 +556,15 @@
 
   .browseBtn,
   .askBtn {
-    width: 34px !important;
-    height: 34px !important;
-    min-width: 34px !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
     padding: 0 !important;
     margin: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    border-radius: 50% !important;
+    border-radius: var(--radius-md) !important;
   }
 
   .browseIcon,
@@ -538,11 +575,6 @@
 
   .kbdHint {
     display: none;
-  }
-
-  .recordBtn {
-    padding: 0 0.75rem;
-    height: 34px;
   }
 
   .canvasWrap {

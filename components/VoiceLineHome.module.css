@@ -204,7 +204,7 @@
 
 @media (max-width: 640px) {
   .container {
-    padding: 1.25rem 0.85rem 11rem 0.85rem;
+    padding: 1.25rem 0.85rem calc(5.5rem + env(safe-area-inset-bottom)) 0.85rem;
   }
   .brand {
     margin-bottom: 1.25rem;
