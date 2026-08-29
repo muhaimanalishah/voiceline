@@ -12,17 +12,26 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  SquarePen,
+  ArrowRight,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import styles from "./AskSidePanel.module.css";
+import styles from "./VoicelineAISidePanel.module.css";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isTextUIPart, UIMessage } from "ai";
 
-export interface AskSidePanelProps {
+export interface VoicelineAISidePanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const SUGGESTED_PROMPTS = [
+  "Summarize my recent voice notes",
+  "What key action items or tasks did I mention?",
+  "Find notes discussing work or engineering",
+  "What topics or tags do I record about the most?",
+];
 
 interface MatchedNoteMetadata {
   id: string;
@@ -49,8 +58,8 @@ function getMessageSources(message: UIMessage): MatchedNoteMetadata[] {
   return meta?.matchedNotes || [];
 }
 
-export default function AskSidePanel({ isOpen, onClose }: AskSidePanelProps) {
-  const { messages, sendMessage, status } = useChat({
+export default function VoicelineAISidePanel({ isOpen, onClose }: VoicelineAISidePanelProps) {
+  const { messages, setMessages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
@@ -101,6 +110,17 @@ export default function AskSidePanel({ isOpen, onClose }: AskSidePanelProps) {
     }
   };
 
+  const handleSelectSuggestion = (prompt: string) => {
+    if (isLoading) return;
+    sendMessage({ text: prompt });
+  };
+
+  const handleNewChat = () => {
+    setMessages([]);
+    setInputPrompt("");
+    setCollapsedSources({});
+  };
+
   const handleCopyMessage = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -121,26 +141,65 @@ export default function AskSidePanel({ isOpen, onClose }: AskSidePanelProps) {
     isLoading && (!lastMessage || lastMessage.role === "user" || getMessageText(lastMessage).length === 0);
 
   return (
-    <aside className={styles.panel} aria-label="Ask AI about your transcriptions">
+    <aside className={styles.panel} aria-label="Voiceline AI about your transcriptions">
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <Sparkles size={15} className={styles.headerIcon} />
-          <span className={styles.title}>Ask AI</span>
+          <span className={styles.title}>Voiceline AI</span>
         </div>
-        <button
-          type="button"
-          className={styles.closeBtn}
-          onClick={onClose}
-          aria-label="Close Ask AI Panel"
-          title="Close panel"
-        >
-          <X size={16} />
-        </button>
+        <div className={styles.headerRight}>
+          <button
+            type="button"
+            className={styles.headerActionBtn}
+            onClick={handleNewChat}
+            aria-label="Start new chat"
+            title="Start new chat"
+          >
+            <SquarePen size={15} />
+          </button>
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onClose}
+            aria-label="Close Voiceline AI Panel"
+            title="Close panel"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       <div className={styles.body}>
         <div className={styles.messagesList}>
-          {messages.map((msg) => {
+          {messages.length === 0 ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIconWrap}>
+                <Sparkles size={22} className={styles.emptySparkle} />
+              </div>
+              <h3 className={styles.emptyTitle}>Voiceline AI</h3>
+              <p className={styles.emptySubtitle}>
+                Ask anything about your voice recordings. Voiceline AI uses hybrid search to retrieve and synthesize exact answers from your notes.
+              </p>
+
+              <div className={styles.suggestionsContainer}>
+                <span className={styles.suggestionsLabel}>Suggested Prompts</span>
+                <div className={styles.suggestionsList}>
+                  {SUGGESTED_PROMPTS.map((prompt, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={styles.suggestionPill}
+                      onClick={() => handleSelectSuggestion(prompt)}
+                    >
+                      <span>{prompt}</span>
+                      <ArrowRight size={12} opacity={0.6} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            messages.map((msg) => {
             const text = getMessageText(msg);
             const sources = getMessageSources(msg);
             const isCollapsed = collapsedSources[msg.id] ?? false;
@@ -250,7 +309,8 @@ export default function AskSidePanel({ isOpen, onClose }: AskSidePanelProps) {
                 )}
               </div>
             );
-          })}
+          })
+        )}
 
           {/* Loading & Generation State before streaming begins */}
           {isGeneratingBeforeStreaming && (
@@ -282,7 +342,7 @@ export default function AskSidePanel({ isOpen, onClose }: AskSidePanelProps) {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               className={styles.textarea}
-              placeholder="Ask a question about your transcriptions..."
+              placeholder="Ask Voiceline AI a question about your transcriptions..."
             />
 
             <div className={styles.inputToolbar}>

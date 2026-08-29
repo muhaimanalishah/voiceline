@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import TranscriptEditor from "@/components/TranscriptEditor";
 import AudioRecorder from "@/components/AudioRecorder";
-import AskSidePanel from "@/components/AskSidePanel";
+import VoicelineAISidePanel from "@/components/VoicelineAISidePanel";
 import { RecordingDetail } from "@/lib/recordings/types";
 import {
   useUpdateRecordingMutation,
@@ -52,10 +52,11 @@ export default function NotePageClient({ recording }: NotePageClientProps) {
             router.push(`/notes/${encodeURIComponent(createdId)}`);
           }}
           onOpenAsk={() => setIsAskPanelOpen((v) => !v)}
+          isAskOpen={isAskPanelOpen}
         />
       </div>
 
-      <AskSidePanel
+      <VoicelineAISidePanel
         isOpen={isAskPanelOpen}
         onClose={() => setIsAskPanelOpen(false)}
       />

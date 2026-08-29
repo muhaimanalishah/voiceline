@@ -18,6 +18,7 @@ import styles from "./AudioRecorder.module.css";
 export interface AudioRecorderProps {
   onRecordingCreated?: (folderId: string) => void;
   onOpenAsk?: () => void;
+  isAskOpen?: boolean;
 }
 
 function formatFileSize(bytes: number): string {
@@ -30,6 +31,7 @@ function formatFileSize(bytes: number): string {
 export default function AudioRecorder({
   onRecordingCreated,
   onOpenAsk,
+  isAskOpen,
 }: AudioRecorderProps = {}) {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -132,7 +134,12 @@ export default function AudioRecorder({
   };
 
   return (
-    <aside className={styles.floatingWrapper} aria-label="Audio Recorder">
+    <aside
+      className={`${styles.floatingWrapper} ${
+        isAskOpen ? styles.floatingWrapperShifted : ""
+      }`}
+      aria-label="Audio Recorder"
+    >
       {error && (
         <div className={styles.errorBox}>
           <AlertCircle size={14} />
@@ -264,12 +271,12 @@ export default function AudioRecorder({
             {onOpenAsk && (
               <button
                 type="button"
-                className={styles.askBtn}
+                className={`${styles.askBtn} ${isAskOpen ? styles.askBtnActive : ""}`}
                 onClick={onOpenAsk}
-                title="Ask AI about your transcriptions"
+                title="Voiceline AI about your transcriptions"
               >
-                <Sparkles size={13} />
-                <span>Ask</span>
+                <Sparkles size={13} className={styles.askIcon} />
+                <span>Voiceline AI</span>
               </button>
             )}
           </div>

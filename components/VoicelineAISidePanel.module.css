@@ -37,6 +37,12 @@
   gap: 0.5rem;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .headerIcon {
   color: var(--accent);
 }
@@ -48,13 +54,14 @@
   letter-spacing: -0.01em;
 }
 
+.headerActionBtn,
 .closeBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-full);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
   border: none;
   background: transparent;
   color: var(--muted);
@@ -62,13 +69,111 @@
   transition: all 0.12s ease;
 }
 
+.headerActionBtn:hover,
 .closeBtn:hover {
   background: var(--hover-bg);
   color: var(--foreground);
 }
 
+.headerActionBtn:active,
 .closeBtn:active {
   transform: scale(0.92);
+}
+
+/* Empty / Welcome State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 3rem 1.25rem 2rem 1.25rem;
+  margin: auto 0;
+  max-width: 380px;
+  align-self: center;
+}
+
+.emptyIconWrap {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.1rem;
+  box-shadow: 0 0 24px -4px rgba(239, 68, 68, 0.3);
+}
+
+.emptySparkle {
+  color: var(--accent);
+}
+
+.emptyTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.01em;
+}
+
+.emptySubtitle {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0 0 1.75rem 0;
+}
+
+.suggestionsContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 0.6rem;
+  text-align: left;
+}
+
+.suggestionsLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  padding-left: 0.2rem;
+}
+
+.suggestionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.suggestionPill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--foreground);
+  font-size: 0.78rem;
+  text-align: left;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.suggestionPill:hover {
+  background: var(--hover-bg);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.suggestionPill:active {
+  transform: scale(0.98);
 }
 
 .body {

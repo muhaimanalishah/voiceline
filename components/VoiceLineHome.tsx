@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, Plus, Settings } from "lucide-react";
+import { Mic, Plus, Settings, Sparkles } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/core";
 import { toast } from "sonner";
 import AudioRecorder from "./AudioRecorder";
-import AskSidePanel from "./AskSidePanel";
+import VoicelineAISidePanel from "./VoicelineAISidePanel";
 import TagGroup from "./TagGroup";
 import {
   NewTagModal,
@@ -138,6 +138,14 @@ export default function VoiceLineHome() {
 
             <div className={styles.headerActions}>
               <Button
+                variant={isAskPanelOpen ? "primary" : "outline"}
+                size="sm"
+                onClick={() => setIsAskPanelOpen((v) => !v)}
+                icon={<Sparkles size={13} />}
+              >
+                Voiceline AI
+              </Button>
+              <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowNewTag(true)}
@@ -169,6 +177,7 @@ export default function VoiceLineHome() {
           <AudioRecorder
             onRecordingCreated={handleRecordingCreated}
             onOpenAsk={() => setIsAskPanelOpen((v) => !v)}
+            isAskOpen={isAskPanelOpen}
           />
 
           {isLoading ? (
@@ -241,7 +250,7 @@ export default function VoiceLineHome() {
         </div>
       </div>
 
-      <AskSidePanel
+      <VoicelineAISidePanel
         isOpen={isAskPanelOpen}
         onClose={() => setIsAskPanelOpen(false)}
       />
