@@ -1,7 +1,9 @@
 .workspace {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
   width: 100%;
   background: var(--background);
   color: var(--foreground);
@@ -16,14 +18,16 @@
 
 .docContainer {
   flex: 1;
+  min-height: 0;
   width: 100%;
   max-width: 860px;
   margin: 0 auto;
-  padding: 2rem 2.5rem 10rem 2.5rem;
+  padding: 2rem 2.5rem 2rem 2.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Top-Left Back Navigation */
@@ -252,7 +256,7 @@
   letter-spacing: 0.01em;
   font-family: inherit;
   resize: none;
-  padding: 0 0 10rem 0;
+  padding: 0;
   margin: 0;
   unicode-bidi: plaintext;
   text-align: start;
@@ -262,28 +266,27 @@
   color: var(--muted);
 }
 
-/* Subtle Bottom Status Bar */
-.bottomBar {
+.headerRightArea {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.65rem 2.5rem;
-  border-top: 1px solid var(--border);
-  font-size: 0.72rem;
-  color: var(--muted);
-  background: var(--background);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
-.workspaceDrawer .bottomBar {
-  padding: 0.65rem 1.75rem;
-  background: var(--surface);
+.headerTopStats {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
 }
 
 .statsGroup {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-family: ui-monospace, monospace;
+  gap: 0.45rem;
 }
 
 .saveStatus {
@@ -325,16 +328,21 @@
     align-items: stretch;
     gap: 0.85rem;
   }
+  .headerRightArea {
+    align-items: stretch;
+    width: 100%;
+    gap: 0.65rem;
+  }
+  .headerTopStats {
+    justify-content: space-between;
+    width: 100%;
+  }
   .titleInput {
     font-size: 1.45rem;
   }
   .toolbarActions {
     flex-wrap: wrap;
     padding-top: 0;
-  }
-  .bottomBar {
-    padding: 0.55rem 1rem;
-    margin-bottom: 0;
-    flex-shrink: 0;
+    width: 100%;
   }
 }

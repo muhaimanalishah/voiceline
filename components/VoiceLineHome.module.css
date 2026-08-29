@@ -1,27 +1,36 @@
 .page {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   width: 100%;
   background: var(--background);
   color: var(--foreground);
   display: flex;
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .mainColumn {
   flex: 1;
   min-width: 0;
+  height: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
   position: relative;
+  overflow: hidden;
 }
 
 .container {
   width: 100%;
-  max-width: 780px;
-  padding: 3rem 1.25rem 12rem 1.25rem;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 2rem 1.5rem;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .headerRow {

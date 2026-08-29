@@ -334,42 +334,71 @@ export default function TranscriptEditor({
             </div>
           </div>
 
-          <div className={styles.toolbarActions}>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleProcessClick}
-              isLoading={processMutation.isPending}
-              icon={<Sparkles size={13} />}
-              title="Process Note (Clean speech, title & organize)"
-            >
-              {isProcessed ? "Re-process" : "Process Note"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopy}
-              icon={copied ? <Check size={13} /> : <Copy size={13} />}
-              title="Copy text (Alt+C)"
-            >
-              {copied ? "Copied" : "Copy"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadMarkdown}
-              icon={<Download size={13} />}
-              title="Export Markdown"
-            >
-              Export
-            </Button>
-            <Button
-              variant="iconDanger"
-              size="sm"
-              onClick={() => setShowDeleteModal(true)}
-              title="Delete note"
-              icon={<Trash2 size={13} />}
-            />
+          <div className={styles.headerRightArea}>
+            <div className={styles.headerTopStats}>
+              <div className={styles.statsGroup}>
+                <span>{wordCount} words</span>
+                <span>•</span>
+                <span>{charCount} chars</span>
+                {viewMode === "raw" && <span>• (Raw)</span>}
+              </div>
+
+              <div className={styles.saveStatus}>
+                {isSaving ? (
+                  <span className={styles.statusSaving}>
+                    <Spinner size="xs" /> Saving
+                  </span>
+                ) : hasUnsavedChanges ? (
+                  <span className={styles.statusUnsaved}>● Unsaved</span>
+                ) : (
+                  <span className={styles.statusSaved}>
+                    <CheckCircle2
+                      size={11}
+                      style={{ display: "inline", verticalAlign: "middle" }}
+                    />{" "}
+                    Saved
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.toolbarActions}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleProcessClick}
+                isLoading={processMutation.isPending}
+                icon={<Sparkles size={13} />}
+                title="Process Note (Clean speech, title & organize)"
+              >
+                {isProcessed ? "Re-process" : "Process Note"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                icon={copied ? <Check size={13} /> : <Copy size={13} />}
+                title="Copy text (Alt+C)"
+              >
+                {copied ? "Copied" : "Copy"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadMarkdown}
+                icon={<Download size={13} />}
+                title="Export Markdown"
+              >
+                Export
+              </Button>
+              <Button
+                variant="iconDanger"
+                size="sm"
+                onClick={() => setShowDeleteModal(true)}
+                title="Delete note"
+                icon={<Trash2 size={13} />}
+              />
+            </div>
           </div>
         </div>
 
@@ -412,30 +441,6 @@ export default function TranscriptEditor({
                 : "Cleaned note text..."
             }
           />
-        </div>
-      </div>
-
-      {/* Subtle Bottom Status Bar */}
-      <div className={styles.bottomBar}>
-        <div className={styles.statsGroup}>
-          <span>{wordCount} words</span>
-          <span>•</span>
-          <span>{charCount} characters</span>
-          {viewMode === "raw" && <span>• (Raw transcript)</span>}
-        </div>
-
-        <div className={styles.saveStatus}>
-          {isSaving ? (
-            <span className={styles.statusSaving}>
-              <Spinner size="xs" /> Saving
-            </span>
-          ) : hasUnsavedChanges ? (
-            <span className={styles.statusUnsaved}>● Unsaved edits</span>
-          ) : (
-            <span className={styles.statusSaved}>
-              <CheckCircle2 size={11} style={{ display: "inline", verticalAlign: "middle" }} /> Saved
-            </span>
-          )}
         </div>
       </div>
 
