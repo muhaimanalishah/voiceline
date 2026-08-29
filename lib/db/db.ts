@@ -24,6 +24,11 @@ function getPostgresClient() {
   return global._postgresClient;
 }
 
-export const client = getPostgresClient();
+export const isDemoMode =
+  process.env.DEMO_MODE === "true" ||
+  process.env.NEXT_PUBLIC_DEMO_MODE === "true" ||
+  !process.env.DATABASE_URL;
+
+export const client = isDemoMode ? null : getPostgresClient();
 export const db = client ? drizzle(client, { schema }) : null;
 export { schema };

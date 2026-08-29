@@ -4,21 +4,24 @@ import { transcribe } from "ai";
 import { openai } from '@ai-sdk/openai';
 import { recordingStore } from "@/lib/recordings";
 import { processVoiceNote } from "@/lib/ai/process";
+import { isDemoMode } from "@/lib/db/db";
+
+const sampleDemoTranscripts = [
+  "Um quick voice memo during team standup: We reviewed the new hybrid search engine, and everyone agreed the SQLite fallback is a lifesaver for local demos. Let's make sure the export to markdown works seamlessly, you know.",
+  "Hey so idea for the next sprint: Implement keyboard navigation for switching between raw and clean transcripts. Also check if we can add custom color palettes for tag creation.",
+  "Meeting with product lead: Discussed how Voiceline AI handles citations. Showing the relevant notes at the bottom of the answer makes verification much easier for users.",
+  "Personal reflection today: Focusing on consistent daily habits over intense weekly bursts. Keeping track of quick voice memos helps clear cognitive load.",
+];
 
 export async function POST(request: NextRequest) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "OPENAI_API_KEY is not configured on the server." },
-        { status: 500 }
-      );
-    }
+    const isMock = isDemoMode || !apiKey;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
 
-    if (!file) {
+    if (!file && !isMock) {
       return NextResponse.json(
         { error: "No audio file provided for transcription." },
         { status: 400 }
@@ -26,15 +29,15 @@ export async function POST(request: NextRequest) {
     }
 
     const MAX_SIZE = 25 * 1024 * 1024; // 25MB
-    if (file.size > MAX_SIZE) {
+    if (file && file.size > MAX_SIZE) {
       return NextResponse.json(
         { error: "File size exceeds the 25MB maximum limit." },
         { status: 400 }
       );
     }
 
-    let mimeType = file.type || "audio/webm";
-    let filename = file.name || "recording.webm";
+    let mimeType = file?.type || "audio/webm";
+    let filename = file?.name || "recording.webm";
 
     if (/\.(aac|acc)$/i.test(filename) || mimeType.includes("aac")) {
       filename = filename.replace(/\.(aac|acc)$/i, "") + ".m4a";
@@ -42,25 +45,26 @@ export async function POST(request: NextRequest) {
       mimeType = "audio/m4a";
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    const model =
-      process.env.TRANSCRIBE_MODEL ||
-      process.env.OPENAI_TRANSCRIBE_MODEL ||
-      process.env.OPENAI_TRANSCRIPTION_MODEL ||
-      "gpt-4o-mini-transcribe";
-
     const uniqueId = crypto.randomUUID().slice(0, 8);
     const timestamp = Date.now();
     const noteId = `note-${timestamp}-${uniqueId}`;
+    const model = isMock ? "mock-transcribe-v1" : (process.env.TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe");
 
-    const transcription = await transcribe({
-      model: openai.transcription(model),
-      audio: buffer,
-    });
+    let transcriptionText = "";
 
-    const transcriptionText = transcription.text;
+    if (isMock) {
+      const randomIndex = Math.floor(Math.random() * sampleDemoTranscripts.length);
+      transcriptionText = sampleDemoTranscripts[randomIndex];
+    } else {
+      const bytes = await file!.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+
+      const transcription = await transcribe({
+        model: openai.transcription(model),
+        audio: buffer,
+      });
+      transcriptionText = transcription.text;
+    }
     const createdAt = new Date().toISOString();
     const defaultTitle = `Voice Note - ${new Date().toLocaleDateString("en-US", {
       month: "short",

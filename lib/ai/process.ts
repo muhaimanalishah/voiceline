@@ -9,6 +9,7 @@ import { toTitleCase, isDefaultTitle } from "@/lib/utils/format";
 import { TagItem } from "@/lib/recordings/types";
 import { generateEmbedding, generateEmbeddings } from "./embeddings";
 import { chunkVoiceNote } from "./chunking";
+import { isDemoMode } from "@/lib/db/db";
 
 export async function generateProcessedNote<T extends z.ZodTypeAny>({
   schema,
@@ -62,11 +63,57 @@ export async function processVoiceNote({
     availableTags,
   });
 
-  const parsed = (await generateProcessedNote({
-    schema,
-    systemPrompt,
-    rawTranscript,
-  })) as ProcessedNoteResult;
+  let parsed: ProcessedNoteResult;
+
+  if (isDemoMode || !process.env.OPENAI_API_KEY) {
+    // Deterministic Smart Mock Note Processing
+    const cleaned = rawTranscript
+      .replace(/\b(um|uh|like|you know|basically|so yeah|kind of)\b/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    // Form title from first 6 words
+    const words = cleaned.split(/\s+/).slice(0, 6);
+    const mockTitle = words.length > 0 ? words.join(" ") : "Voice Note Memo";
+
+    // Auto-match tag
+    let mockTagId: string | null = null;
+    const lower = cleaned.toLowerCase();
+    for (const tag of availableTags) {
+      const tagName = tag.name.toLowerCase();
+      if (
+        lower.includes(tagName) ||
+        (tagName === "work" && (lower.includes("meeting") || lower.includes("task") || lower.includes("sprint") || lower.includes("project"))) ||
+        (tagName === "ideas" && (lower.includes("idea") || lower.includes("concept") || lower.includes("feature") || lower.includes("future"))) ||
+        (tagName === "personal" && (lower.includes("trip") || lower.includes("habit") || lower.includes("checklist") || lower.includes("home")))
+      ) {
+        mockTagId = tag.id;
+        break;
+      }
+    }
+
+    parsed = {
+      cleanText: cleaned,
+      title: mockTitle,
+      summary: needsSummary ? ["Key takeaways and action items extracted from voice note."] : undefined,
+      tagId: mockTagId ?? undefined,
+    };
+  } else {
+    try {
+      parsed = (await generateProcessedNote({
+        schema,
+        systemPrompt,
+        rawTranscript,
+      })) as ProcessedNoteResult;
+    } catch {
+      // Fallback
+      parsed = {
+        cleanText: rawTranscript.trim(),
+        title: currentTitle || noteId,
+        tagId: currentTagId ?? undefined,
+      };
+    }
+  }
 
   const cleanText = parsed.cleanText?.trim() || rawTranscript;
   const title =

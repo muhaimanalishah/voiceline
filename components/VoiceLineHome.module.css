@@ -1,6 +1,5 @@
 .page {
-  height: 100vh;
-  height: 100dvh;
+  height: 100%;
   width: 100%;
   background: var(--background);
   color: var(--foreground);
@@ -213,7 +212,7 @@
 
 @media (max-width: 640px) {
   .page {
-    height: 100dvh;
+    height: 100%;
     overflow: hidden;
   }
   .mainColumn {

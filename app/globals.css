@@ -40,8 +40,10 @@
 
 html,
 body {
-  min-height: 100%;
+  height: 100%;
+  height: 100dvh;
   max-width: 100vw;
+  overflow: hidden;
   color-scheme: dark;
 }
 
@@ -50,6 +52,9 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import DemoBanner from "@/components/DemoBanner";
+import { isDemoMode } from "@/lib/db/db";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,7 +27,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
         <QueryProvider>
-          {children}
+          {isDemoMode && <DemoBanner />}
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", width: "100%" }}>
+            {children}
+          </div>
           <Toaster richColors position="top-right" theme="dark" />
         </QueryProvider>
       </body>
