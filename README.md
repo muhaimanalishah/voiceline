@@ -2,6 +2,8 @@
 
 VoiceLine is an AI-powered voice-note workspace: record or upload audio, get it transcribed automatically, and let AI clean it up with titles, summaries, and auto-tags. Query across your entire library with **Voiceline AI** — an interactive RAG side panel powered by **dense + sparse hybrid search** with clickable note citations.
 
+> 🚀 **Live Demo:** Try out the interactive demo running locally with SQLite and mock AI at [**voiceline-demo.vercel.app**](https://voiceline-demo.vercel.app/).
+
 <p align="center">
   <img src=".github/readme-assets/workspace.jpg" alt="VoiceLine workspace with notes grouped by tag" width="49%" />
   <img src=".github/readme-assets/ai-panel.jpg" alt="Voiceline AI RAG interactive side panel" width="49%" />
