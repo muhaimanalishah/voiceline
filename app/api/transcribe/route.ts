@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import OpenAI, { toFile } from "openai";
+import { transcribe } from "ai";
+import { openai } from '@ai-sdk/openai';
 import { recordingStore } from "@/lib/recordings";
 import { processVoiceNote } from "@/lib/ai/process";
 
@@ -44,7 +45,6 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const openai = new OpenAI({ apiKey });
     const model =
       process.env.TRANSCRIBE_MODEL ||
       process.env.OPENAI_TRANSCRIBE_MODEL ||
@@ -55,10 +55,9 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const noteId = `note-${timestamp}-${uniqueId}`;
 
-    const openaiFile = await toFile(buffer, filename, { type: mimeType });
-    const transcription = await openai.audio.transcriptions.create({
-      file: openaiFile,
-      model,
+    const transcription = await transcribe({
+      model: openai.transcription(model),
+      audio: buffer,
     });
 
     const transcriptionText = transcription.text;
