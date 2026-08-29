@@ -39,6 +39,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       tagId: processed.tagId,
       summary: processed.summary,
       embedding: processed.embedding,
+      chunks: processed.chunks,
     });
 
     const updatedNote = await recordingStore.getRecordingById(id);

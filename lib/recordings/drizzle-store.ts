@@ -1,4 +1,4 @@
-import { eq, desc, sql, isNull } from "drizzle-orm";
+import { eq, desc, sql, isNull, isNotNull, cosineDistance } from "drizzle-orm";
 import { db, schema } from "@/lib/db/db";
 import {
   RecordingStore,
@@ -12,6 +12,7 @@ import {
   NewTagInput,
   UpdateTagInput,
   UpdateRecordingInput,
+  HybridSearchResult,
 } from "./types";
 import crypto from "crypto";
 
@@ -196,6 +197,23 @@ export class DrizzleRecordingStore implements RecordingStore {
       .set(updateData)
       .where(eq(schema.recordings.id, id));
 
+    // Persist granular chunks if provided
+    if (updates.chunks && updates.chunks.length > 0) {
+      await database
+        .delete(schema.recordingChunks)
+        .where(eq(schema.recordingChunks.recordingId, id));
+
+      await database.insert(schema.recordingChunks).values(
+        updates.chunks.map((chunk) => ({
+          id: `${id}_chunk_${chunk.chunkIndex}`,
+          recordingId: id,
+          chunkIndex: chunk.chunkIndex,
+          content: chunk.content,
+          embedding: chunk.embedding,
+        }))
+      );
+    }
+
     return true;
   }
 
@@ -228,7 +246,230 @@ export class DrizzleRecordingStore implements RecordingStore {
         },
       });
 
+    // Persist granular chunks if provided
+    if (data.chunks && data.chunks.length > 0) {
+      await database
+        .delete(schema.recordingChunks)
+        .where(eq(schema.recordingChunks.recordingId, data.id));
+
+      await database.insert(schema.recordingChunks).values(
+        data.chunks.map((chunk) => ({
+          id: `${data.id}_chunk_${chunk.chunkIndex}`,
+          recordingId: data.id,
+          chunkIndex: chunk.chunkIndex,
+          content: chunk.content,
+          embedding: chunk.embedding,
+        }))
+      );
+    }
+
     return true;
+  }
+
+  async hybridSearchNotes({
+    queryText,
+    queryEmbedding,
+    limit = 5,
+  }: {
+    queryText: string;
+    queryEmbedding?: number[];
+    limit?: number;
+  }): Promise<HybridSearchResult[]> {
+    const database = getDatabase();
+    const candidateLimit = Math.max(limit * 3, 15);
+
+    type RankedCandidate = {
+      id: string;
+      title: string | null;
+      tagName: string | null;
+      createdAt: string;
+      chunkContent: string;
+      chunkIndex: number;
+      denseRank?: number;
+      sparseRank?: number;
+      denseScore?: number;
+      sparseScore?: number;
+    };
+
+    const candidatesMap = new Map<string, RankedCandidate>();
+
+    // 1. DENSE VECTOR SEARCH (on recording_chunks)
+    if (queryEmbedding && queryEmbedding.length > 0) {
+      try {
+        const similarity = sql<number>`1 - (${cosineDistance(
+          schema.recordingChunks.embedding,
+          queryEmbedding
+        )})`;
+
+        const chunkRows = await database
+          .select({
+            id: schema.recordings.id,
+            title: schema.recordings.title,
+            tagName: schema.tags.name,
+            createdAt: schema.recordings.createdAt,
+            chunkContent: schema.recordingChunks.content,
+            chunkIndex: schema.recordingChunks.chunkIndex,
+            similarity,
+          })
+          .from(schema.recordingChunks)
+          .innerJoin(
+            schema.recordings,
+            eq(schema.recordingChunks.recordingId, schema.recordings.id)
+          )
+          .leftJoin(schema.tags, eq(schema.recordings.tagId, schema.tags.id))
+          .where(isNotNull(schema.recordingChunks.embedding))
+          .orderBy(desc(similarity))
+          .limit(candidateLimit);
+
+        chunkRows.forEach((row, rank) => {
+          const key = `${row.id}_${row.chunkIndex}`;
+          candidatesMap.set(key, {
+            id: row.id,
+            title: row.title,
+            tagName: row.tagName,
+            createdAt: row.createdAt,
+            chunkContent: row.chunkContent,
+            chunkIndex: row.chunkIndex,
+            denseRank: rank + 1,
+            denseScore: row.similarity,
+          });
+        });
+
+        // Also check recordings without chunks (fallback for whole-note embeddings)
+        const noteSimilarity = sql<number>`1 - (${cosineDistance(
+          schema.recordings.embedding,
+          queryEmbedding
+        )})`;
+
+        const noteRows = await database
+          .select({
+            id: schema.recordings.id,
+            title: schema.recordings.title,
+            tagName: schema.tags.name,
+            createdAt: schema.recordings.createdAt,
+            content: sql<string>`coalesce(${schema.recordings.transcript}, ${schema.recordings.rawTranscript})`,
+            similarity: noteSimilarity,
+          })
+          .from(schema.recordings)
+          .leftJoin(schema.tags, eq(schema.recordings.tagId, schema.tags.id))
+          .where(isNotNull(schema.recordings.embedding))
+          .orderBy(desc(noteSimilarity))
+          .limit(5);
+
+        noteRows.forEach((row, rank) => {
+          const key = `${row.id}_0`;
+          if (!candidatesMap.has(key)) {
+            candidatesMap.set(key, {
+              id: row.id,
+              title: row.title,
+              tagName: row.tagName,
+              createdAt: row.createdAt,
+              chunkContent: row.content,
+              chunkIndex: 0,
+              denseRank: rank + 1,
+              denseScore: row.similarity,
+            });
+          }
+        });
+      } catch (err) {
+        console.error("Vector search failed:", err);
+      }
+    }
+
+    // 2. SPARSE / FULL-TEXT KEYWORD SEARCH
+    if (queryText.trim()) {
+      try {
+        const textRank = sql<number>`ts_rank_cd(
+          to_tsvector('english', coalesce(${schema.recordingChunks.content}, '')),
+          plainto_tsquery('english', ${queryText})
+        )`;
+
+        const textMatches = await database
+          .select({
+            id: schema.recordings.id,
+            title: schema.recordings.title,
+            tagName: schema.tags.name,
+            createdAt: schema.recordings.createdAt,
+            chunkContent: schema.recordingChunks.content,
+            chunkIndex: schema.recordingChunks.chunkIndex,
+            rankScore: textRank,
+          })
+          .from(schema.recordingChunks)
+          .innerJoin(
+            schema.recordings,
+            eq(schema.recordingChunks.recordingId, schema.recordings.id)
+          )
+          .leftJoin(schema.tags, eq(schema.recordings.tagId, schema.tags.id))
+          .where(
+            sql`to_tsvector('english', coalesce(${schema.recordingChunks.content}, '')) @@ plainto_tsquery('english', ${queryText})`
+          )
+          .orderBy(desc(textRank))
+          .limit(candidateLimit);
+
+        textMatches.forEach((row, rank) => {
+          const key = `${row.id}_${row.chunkIndex}`;
+          const existing = candidatesMap.get(key);
+          if (existing) {
+            existing.sparseRank = rank + 1;
+            existing.sparseScore = row.rankScore;
+          } else {
+            candidatesMap.set(key, {
+              id: row.id,
+              title: row.title,
+              tagName: row.tagName,
+              createdAt: row.createdAt,
+              chunkContent: row.chunkContent,
+              chunkIndex: row.chunkIndex,
+              sparseRank: rank + 1,
+              sparseScore: row.rankScore,
+            });
+          }
+        });
+      } catch (err) {
+        console.error("Text search failed:", err);
+      }
+    }
+
+    // 3. RECIPROCAL RANK FUSION (RRF)
+    const k = 60; // standard RRF smoothing constant
+    const denseWeight = 0.65;
+    const sparseWeight = 0.35;
+
+    const scoredResults: HybridSearchResult[] = Array.from(
+      candidatesMap.values()
+    ).map((candidate) => {
+      let rrfScore = 0;
+      let matchType: "hybrid" | "vector" | "keyword" = "vector";
+
+      if (candidate.denseRank !== undefined && candidate.sparseRank !== undefined) {
+        rrfScore =
+          denseWeight / (k + candidate.denseRank) +
+          sparseWeight / (k + candidate.sparseRank);
+        matchType = "hybrid";
+      } else if (candidate.denseRank !== undefined) {
+        rrfScore = denseWeight / (k + candidate.denseRank);
+        matchType = "vector";
+      } else if (candidate.sparseRank !== undefined) {
+        rrfScore = sparseWeight / (k + candidate.sparseRank);
+        matchType = "keyword";
+      }
+
+      return {
+        id: candidate.id,
+        title: candidate.title,
+        tagName: candidate.tagName,
+        createdAt: candidate.createdAt,
+        chunkContent: candidate.chunkContent,
+        chunkIndex: candidate.chunkIndex,
+        score: rrfScore,
+        matchType,
+      };
+    });
+
+    // Sort by RRF score descending
+    scoredResults.sort((a, b) => b.score - a.score);
+
+    return scoredResults.slice(0, limit);
   }
 
   async deleteRecording(id: string): Promise<boolean> {

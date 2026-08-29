@@ -7,7 +7,8 @@ import {
 } from "./prompts/process";
 import { toTitleCase, isDefaultTitle } from "@/lib/utils/format";
 import { TagItem } from "@/lib/recordings/types";
-import { generateEmbedding } from "./embeddings";
+import { generateEmbedding, generateEmbeddings } from "./embeddings";
+import { chunkVoiceNote } from "./chunking";
 
 export async function generateProcessedNote<T extends z.ZodTypeAny>({
   schema,
@@ -81,7 +82,7 @@ export async function processVoiceNote({
     ? availableTags.find((t) => t.id === tagId) || null
     : null;
 
-  // Build semantic payload and compute vector embedding
+  // Build semantic payload and compute document-level vector embedding
   const textToEmbed = [
     `Title: ${title}`,
     matchedTag ? `Tag: ${matchedTag.name}` : null,
@@ -93,6 +94,24 @@ export async function processVoiceNote({
 
   const embedding = await generateEmbedding(textToEmbed);
 
+  // Generate granular passage chunks for long-note precision
+  const chunks = chunkVoiceNote({
+    content: cleanText,
+    title,
+    tagName: matchedTag?.name ?? null,
+  });
+
+  // Batch compute embeddings for all chunks in a single call
+  const chunkEmbeddings = await generateEmbeddings(
+    chunks.map((c) => c.embeddingText)
+  );
+
+  const processedChunks = chunks.map((chunk, index) => ({
+    chunkIndex: chunk.chunkIndex,
+    content: chunk.content,
+    embedding: chunkEmbeddings[index],
+  }));
+
   return {
     cleanText,
     title,
@@ -100,5 +119,6 @@ export async function processVoiceNote({
     tagId,
     tagName: matchedTag?.name ?? null,
     embedding,
+    chunks: processedChunks,
   };
 }

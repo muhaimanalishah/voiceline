@@ -64,12 +64,30 @@ export interface PaginatedRecordings {
   hasMore: boolean;
 }
 
+export interface RecordingChunkInput {
+  chunkIndex: number;
+  content: string;
+  embedding: number[];
+}
+
+export interface HybridSearchResult {
+  id: string; // note ID
+  title: string | null;
+  tagName: string | null;
+  createdAt: string;
+  chunkContent: string;
+  chunkIndex: number;
+  score: number;
+  matchType: "hybrid" | "vector" | "keyword";
+}
+
 export interface UpdateRecordingInput {
   text?: string;
   title?: string;
   tagId?: string | null;
   summary?: string[] | null;
   embedding?: number[] | null;
+  chunks?: RecordingChunkInput[];
 }
 
 export interface NewRecordingInput {
@@ -80,6 +98,7 @@ export interface NewRecordingInput {
   rawTranscript: string;
   summary?: string[] | null;
   embedding?: number[] | null;
+  chunks?: RecordingChunkInput[];
   modelUsed?: string;
   duration?: number | null;
   createdAt?: string;
@@ -95,6 +114,11 @@ export interface RecordingStore {
   updateRecording(id: string, updates: UpdateRecordingInput): Promise<boolean>;
   saveRecording(data: NewRecordingInput): Promise<boolean>;
   deleteRecording(id: string): Promise<boolean>;
+  hybridSearchNotes?(params: {
+    queryText: string;
+    queryEmbedding?: number[];
+    limit?: number;
+  }): Promise<HybridSearchResult[]>;
   getAllTags(): Promise<TagItem[]>;
   getAllTagsWithCounts(): Promise<TagWithCount[]>;
   getUnclassifiedCount(): Promise<number>;
@@ -103,3 +127,4 @@ export interface RecordingStore {
   updateTag(id: string, updates: UpdateTagInput): Promise<TagItem | null>;
   deleteTag(id: string): Promise<boolean>;
 }
+

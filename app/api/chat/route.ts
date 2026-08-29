@@ -7,10 +7,10 @@ import {
   toUIMessageStream,
   UIMessage,
 } from "ai";
-import { db } from "@/lib/db/db";
-import { recordings, tags } from "@/lib/db/schema";
+import { recordingStore } from "@/lib/recordings";
+import { HybridSearchResult } from "@/lib/recordings/types";
 import { generateEmbedding } from "@/lib/ai/embeddings";
-import { cosineDistance, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { db } from "@/lib/db/db";
 
 export const maxDuration = 30;
 
@@ -27,45 +27,32 @@ export async function POST(request: Request) {
       ?.join(" ") || "";
 
   let contextString = "No matching voice notes found.";
+  let matchedChunks: HybridSearchResult[] = [];
 
-  // 2. Perform vector similarity search if database and query are available
+  // 2. Perform Hybrid Search (Dense pgvector + Full-Text RRF)
   if (db && queryText.trim()) {
     try {
       const queryEmbedding = await generateEmbedding(queryText);
-      const similarity = sql<number>`1 - (${cosineDistance(recordings.embedding, queryEmbedding)})`;
+      const results = await recordingStore.hybridSearchNotes?.({
+        queryText,
+        queryEmbedding,
+        limit: 6,
+      });
 
-      const matchedNotes = await db
-        .select({
-          id: recordings.id,
-          title: recordings.title,
-          text: recordings.transcript,
-          rawTranscript: recordings.rawTranscript,
-          summary: recordings.summary,
-          tagName: tags.name,
-          createdAt: recordings.createdAt,
-          similarity,
-        })
-        .from(recordings)
-        .leftJoin(tags, eq(recordings.tagId, tags.id))
-        .where(isNotNull(recordings.embedding))
-        .orderBy(desc(similarity))
-        .limit(4);
-
-      // Filter by confidence threshold (> 0.35)
-      const relevantNotes = matchedNotes.filter((n) => n.similarity > 0.35);
-
-      if (relevantNotes.length > 0) {
-        contextString = relevantNotes
-          .map((n) => {
-            const body = n.text || n.rawTranscript;
-            return `[Note ID: ${n.id} | Title: "${n.title || "Untitled"}" | Tag: ${
-              n.tagName || "Unclassified"
-            } | Date: ${n.createdAt}]\n${body}`;
+      if (results && results.length > 0) {
+        matchedChunks = results;
+        contextString = matchedChunks
+          .map((chunk) => {
+            const sectionLabel =
+              chunk.chunkIndex > 0 ? ` (Section ${chunk.chunkIndex + 1})` : "";
+            return `[Note ID: ${chunk.id} | Title: "${chunk.title || "Untitled"}"${sectionLabel} | Tag: ${
+              chunk.tagName || "Unclassified"
+            } | Date: ${chunk.createdAt}]\n${chunk.chunkContent}`;
           })
           .join("\n\n---\n\n");
       }
     } catch (err) {
-      console.error("RAG retrieval error:", err);
+      console.error("Hybrid RAG retrieval error:", err);
     }
   }
 
@@ -87,6 +74,9 @@ ${contextString}`;
   return createUIMessageStreamResponse({
     stream: toUIMessageStream({
       stream: result.stream,
+      messageMetadata: () => ({
+        matchedNotes: matchedChunks,
+      }),
     }),
   });
 }

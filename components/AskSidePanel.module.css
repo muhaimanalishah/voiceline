@@ -207,7 +207,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 0.15rem;
+  padding-top: 0.25rem;
 }
 
 .bottomIcon {
@@ -246,12 +246,230 @@
   color: var(--foreground);
 }
 
-.messageTime {
-  font-size: 0.64rem;
-  color: var(--muted);
-  margin-top: 0.25rem;
-  padding: 0 0.15rem;
+/* Referenced Sources Card Section */
+.sourcesSection {
+  margin-top: 0.65rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color 0.15s ease;
 }
+
+.sourcesSection:hover {
+  border-color: var(--border);
+}
+
+.sourcesHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.65rem;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 500;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.sourcesHeader:hover {
+  color: var(--foreground);
+  background: var(--hover-bg);
+}
+
+.sourcesHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.sourcesCountBadge {
+  font-size: 0.68rem;
+  padding: 0.08rem 0.35rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.sourcesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.65rem 0.65rem 0.65rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sourceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-subtle);
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.12s ease;
+}
+
+.sourceCard:hover {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: var(--hover-bg);
+  transform: translateY(-1px);
+}
+
+.sourceCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sourceTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.sourceTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourceBadges {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.tagBadge {
+  font-size: 0.65rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-full);
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.matchBadge {
+  font-size: 0.62rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.sourceExcerpt {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Loading & Generation State */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  animation: pulseCard 2s infinite ease-in-out;
+  width: 100%;
+}
+
+@keyframes pulseCard {
+  0% {
+    border-color: var(--border-subtle);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+  100% {
+    border-color: var(--border-subtle);
+  }
+}
+
+.loadingHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.loadingSparkle {
+  color: var(--accent);
+  animation: spinSlow 3s linear infinite;
+}
+
+@keyframes spinSlow {
+  0% {
+    transform: rotate(0deg) scale(0.95);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.08);
+  }
+  100% {
+    transform: rotate(360deg) scale(0.95);
+  }
+}
+
+.loadingText {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.shimmerBars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.shimmerBar {
+  height: 9px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.shimmerBarShort {
+  width: 65%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 
 /* Horizontal & Spacious VoiceLine Input Section */
 .inputSection {

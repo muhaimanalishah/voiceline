@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
         tagId: processed.tagId,
         summary: processed.summary,
         embedding: processed.embedding,
+        chunks: processed.chunks,
       });
 
       return NextResponse.json({
