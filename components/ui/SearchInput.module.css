@@ -40,3 +40,12 @@
   right: 0.65rem;
   pointer-events: none;
 }
+
+@media (max-width: 640px) {
+  .shortcutHint {
+    display: none !important;
+  }
+  .input {
+    padding-right: 0.85rem !important;
+  }
+}

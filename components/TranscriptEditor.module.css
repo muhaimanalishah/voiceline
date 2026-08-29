@@ -19,7 +19,7 @@
   width: 100%;
   max-width: 860px;
   margin: 0 auto;
-  padding: 2rem 2.5rem 8.5rem 2.5rem;
+  padding: 2rem 2.5rem 10rem 2.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -252,7 +252,7 @@
   letter-spacing: 0.01em;
   font-family: inherit;
   resize: none;
-  padding: 0;
+  padding: 0 0 10rem 0;
   margin: 0;
   unicode-bidi: plaintext;
   text-align: start;
@@ -307,7 +307,10 @@
 
 @media (max-width: 640px) {
   .docContainer {
-    padding: 1.25rem 1rem 8.5rem 1rem;
+    padding: 1.25rem 1rem 12rem 1rem;
+  }
+  .textarea {
+    padding: 0 0 11rem 0;
   }
   .headerBar {
     flex-direction: column;
