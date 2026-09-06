@@ -1,6 +1,8 @@
-import { pgTable, text, integer, timestamp, vector, index } from "drizzle-orm/pg-core";
+import { pgSchema, text, integer, timestamp, vector, index } from "drizzle-orm/pg-core";
 
-export const tags = pgTable("tags", {
+export const voicelineSchema = pgSchema("voiceline");
+
+export const tags = voicelineSchema.table("tags", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description").notNull(),
@@ -14,7 +16,7 @@ export const tags = pgTable("tags", {
     .$onUpdate(() => new Date().toISOString()),
 });
 
-export const recordings = pgTable("recordings", {
+export const recordings = voicelineSchema.table("recordings", {
   id: text("id").primaryKey(),
   tagId: text("tag_id").references(() => tags.id, { onDelete: "set null" }),
   title: text("title"),
@@ -37,7 +39,7 @@ export const recordings = pgTable("recordings", {
   ]
 );
 
-export const recordingChunks = pgTable("recording_chunks", {
+export const recordingChunks = voicelineSchema.table("recording_chunks", {
   id: text("id").primaryKey(),
   recordingId: text("recording_id")
     .notNull()
