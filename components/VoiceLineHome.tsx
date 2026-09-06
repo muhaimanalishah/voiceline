@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, Plus, Settings, Sparkles } from "lucide-react";
+import { Mic, Plus, Settings, Sparkles, LogOut } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
@@ -124,6 +124,17 @@ export default function VoiceLineHome() {
     if (isAskPanelOpen) setIsAskPanelOpen(false);
   });
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      toast.success("Signed out");
+      router.push("/login");
+      router.refresh();
+    } catch {
+      toast.error("Failed to sign out");
+    }
+  };
+
   return (
     <div className={styles.page}>
       <div className={styles.mainColumn}>
@@ -164,6 +175,14 @@ export default function VoiceLineHome() {
                 title="Manage tags"
                 aria-label="Manage tags"
                 icon={<Settings size={14} />}
+              />
+              <Button
+                variant="icon"
+                size="sm"
+                onClick={handleLogout}
+                title="Sign out"
+                aria-label="Sign out"
+                icon={<LogOut size={14} />}
               />
             </div>
           </div>
